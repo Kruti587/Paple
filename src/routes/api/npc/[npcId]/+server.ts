@@ -4,7 +4,12 @@ import { formatWebContext, searchWeb } from '$lib/server/anakin';
 import { askGroq } from '$lib/server/groq';
 import type { RequestHandler } from './$types';
 
-const WEB_CONTEXT_RULES = `\nIf the live web intel is relevant to the player's question, weave the real facts in naturally, in character. If it isn't relevant, ignore it. Never mention searching or sources.`;
+const webContextRules = () => `
+Answer the player's question using the concrete facts in the live web intel above: specific numbers, names, places and dates. Stay in character and keep your usual length. Don't invent facts that aren't in the intel. Today is ${new Date().toDateString()}.`;
+
+/** Questions about the (fictional) quest or the character themselves: the web can't help. */
+const IN_WORLD_QUESTION =
+	/\b(quest|hint|clue|hq|code|pin|post-?it|terminal|kiosk|guards?|pantry|yourself|who are you|your name)\b/i;
 
 export const POST: RequestHandler = async ({ params, request }) => {
 	const npc = Object.hasOwn(npcConfig, params.npcId) ? npcConfig[params.npcId] : undefined;
@@ -22,8 +27,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	}
 
 	const question = message.trim();
-	// Ground the NPC in real, current Bengaluru info pulled from the web by Anakin.
-	const sources = await searchWeb(`${question} (Bengaluru)`, 3);
+	// Ground real-world questions in current Bengaluru info pulled from the web by Anakin.
+	const sources = IN_WORLD_QUESTION.test(question)
+		? []
+		: await searchWeb(`${question} (Bengaluru)`, 3);
 	const webContext = formatWebContext(sources);
 
 	try {
@@ -31,11 +38,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			[
 				{
 					role: 'system',
-					content: npc.systemPrompt + (webContext && webContext + WEB_CONTEXT_RULES)
+					content: npc.systemPrompt + (webContext && webContext + webContextRules())
 				},
 				{ role: 'user', content: question }
 			],
-			{ maxTokens: 120, temperature: 0.7 }
+			{ maxTokens: 160, temperature: 0.6 }
 		);
 
 		return json({ reply, sources: sources.map(({ title, url }) => ({ title, url })) });

@@ -5,7 +5,8 @@ import { env } from '$env/dynamic/private';
 // Docs: https://anakin.io/docs/api-reference/search/search
 const ANAKIN_SEARCH_URL = 'https://api.anakin.io/v1/search';
 const TIMEOUT_MS = 8_000;
-const MAX_SNIPPET_CHARS = 500;
+/** Snippets are near whole-page text that opens with nav clutter; facts come later. */
+const MAX_SNIPPET_CHARS = 1500;
 
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
 
@@ -13,6 +14,7 @@ export interface WebResult {
 	title: string;
 	url: string;
 	snippet: string;
+	date?: string;
 }
 
 /**
@@ -39,15 +41,15 @@ export async function searchWeb(prompt: string, limit = 3): Promise<WebResult[]>
 		}
 
 		const data = (await res.json()) as {
-			results?: { title?: string; url?: string; snippet?: string }[];
+			results?: { title?: string; url?: string; snippet?: string; date?: string }[];
 		};
 		return (data.results ?? [])
 			.filter((r) => r.url && (r.title || r.snippet))
 			.map((r) => ({
 				title: clean(r.title ?? '') || r.url!,
 				url: r.url!,
-				// Snippets can be whole-page dumps; keep the LLM prompt small.
-				snippet: clean(r.snippet ?? '').slice(0, MAX_SNIPPET_CHARS)
+				snippet: clean(r.snippet ?? '').slice(0, MAX_SNIPPET_CHARS),
+				date: r.date
 			}));
 	} catch (err) {
 		console.warn('Anakin search failed:', err);
@@ -58,6 +60,8 @@ export async function searchWeb(prompt: string, limit = 3): Promise<WebResult[]>
 /** Formats results as a context block for an LLM system prompt ('' when there are none). */
 export function formatWebContext(results: WebResult[]): string {
 	if (!results.length) return '';
-	const items = results.map((r, i) => `[${i + 1}] ${r.title}: ${r.snippet}`).join('\n');
+	const items = results
+		.map((r, i) => `[${i + 1}] ${r.title}${r.date ? ` (${r.date})` : ''}: ${r.snippet}`)
+		.join('\n');
 	return `\n\nLive web intel (fetched just now via Anakin):\n${items}`;
 }

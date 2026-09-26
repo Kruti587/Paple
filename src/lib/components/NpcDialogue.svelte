@@ -105,8 +105,11 @@
 					<button type="button" onclick={() => ask('Any hints for my quest at the HQ building?')}>
 						💡 Quest Hint
 					</button>
-					<button type="button" onclick={() => ask('Tell me about yourself and this city!')}>
-						🏙️ About Bengaluru
+					<button type="button" onclick={() => ask("What's the weather like in Bengaluru today?")}>
+						🌦️ Weather today
+					</button>
+					<button type="button" onclick={() => ask("What's the latest news in Bengaluru?")}>
+						📰 City news
 					</button>
 				</div>
 			{/if}
