@@ -4,12 +4,15 @@
 	import NpcDialogue from '$lib/components/NpcDialogue.svelte';
 	import { npcConfig } from '$lib/npcConfig';
 	import { createWorld } from '$lib/world/createWorld';
+	import { formatClock } from '$lib/world/dayCycle';
 	import { createKeyboard } from '$lib/world/input';
 	import { attachViewControls } from '$lib/world/player';
 	import { createNpcPicker } from './npcPicker';
 
 	let canvas: HTMLCanvasElement;
 	let loading = $state(true);
+	let clock = $state('');
+	let isNight = $state(false);
 
 	// --- NPC dialogue ---
 	let activeNpcId = $state<string | null>(null);
@@ -31,6 +34,10 @@
 			const world = createWorld(canvas, Object.keys(npcConfig));
 			const keyboard = createKeyboard();
 
+			// ?t=18.2 starts the day at 6:12 PM (handy for seeing the sunset straight away).
+			const startHour = Number(new URLSearchParams(location.search).get('t'));
+			if (startHour) world.setHour(startHour);
+
 			const resize = () => world.resize(canvas.clientWidth, canvas.clientHeight);
 			resize();
 			window.addEventListener('resize', resize);
@@ -45,6 +52,9 @@
 					keyboard.reset();
 					openDialogue(nearbyNpcId);
 				} else if (e.code === 'Escape') activeNpcId = null;
+				// [ and ] step the clock back / forward an hour.
+				else if (e.code === 'BracketRight') world.skipHours(1);
+				else if (e.code === 'BracketLeft') world.skipHours(-1);
 			};
 			window.addEventListener('keydown', onKey);
 
@@ -61,6 +71,12 @@
 				const near = world.nearbyNpc();
 				if (near !== nearbyNpcId) nearbyNpcId = near;
 				world.render(elapsed);
+				const hour = world.hour();
+				const label = formatClock(hour);
+				if (label !== clock) {
+					clock = label;
+					isNight = hour >= 18.9;
+				}
 			};
 			world.setAnimationLoop(loop);
 			loading = false;
@@ -93,6 +109,10 @@
 		<div class="hint">
 			<strong>Namma Planet</strong>
 			<span>WASD to walk · Shift to run · drag to look · scroll to zoom</span>
+		</div>
+		<div class="clock" class:night={isNight} title="30 real minutes = one day, 8 AM to 8 PM">
+			<strong>{clock}</strong>
+			<span><kbd>[</kbd> <kbd>]</kbd> change time</span>
 		</div>
 		{#if nearbyNpc && !activeNpcId}
 			<div class="prompt">Press <kbd>E</kbd> or click to talk to {nearbyNpc.name}</div>
@@ -143,6 +163,31 @@
 		background: rgb(255 255 255 / 0.75);
 		color: #363a3c;
 		font-size: 0.85rem;
+	}
+	.clock {
+		position: absolute;
+		top: 1rem;
+		right: 1rem;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.2rem;
+		padding: 0.6rem 0.9rem;
+		border-radius: 0.6rem;
+		background: rgb(255 255 255 / 0.75);
+		color: #363a3c;
+		font-size: 0.8rem;
+		transition:
+			background 2s,
+			color 2s;
+	}
+	.clock strong {
+		font-size: 1.1rem;
+		font-variant-numeric: tabular-nums;
+	}
+	.clock.night {
+		background: rgb(20 24 56 / 0.7);
+		color: #e8ecff;
 	}
 	.prompt {
 		position: absolute;

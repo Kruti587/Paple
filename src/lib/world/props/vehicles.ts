@@ -36,7 +36,7 @@ export function createAuto(): THREE.Group {
 	box(g, 1.25, 0.9, 0.4, PALETTE.autoYellow, 0, 1.35, -0.85);
 	box(g, 1.26, 0.12, 0.42, PALETTE.kerbBlack, 0, 0.95, -0.85);
 	for (const x of [-0.55, 0.55]) box(g, 0.05, 0.9, 0.05, PALETTE.kerbBlack, x, 1.38, 0.85);
-	sphere(g, 0.08, '#fff6c9', 0, 1.2, 1.3, 8);
+	sphere(g, 0.08, PALETTE.headlight, 0, 1.2, 1.3, 8);
 	wheel(g, 0.24, 0.16, 0, 1.0);
 	wheel(g, 0.24, 0.16, -0.6, -0.65);
 	wheel(g, 0.24, 0.16, 0.6, -0.65);
@@ -54,8 +54,8 @@ export function createCar(rand: () => number): THREE.Group {
 	box(g, 1.22, 0.4, 0.04, '#bcd6db', 0, 1.15, -1.21).rotation.x = 0.3;
 	for (const x of [-0.66, 0.66]) box(g, 0.04, 0.36, 1.5, '#bcd6db', x, 1.17, -0.25);
 	for (const x of [-0.5, 0.5]) {
-		sphere(g, 0.08, '#fff6c9', x, 0.72, 1.7, 8);
-		box(g, 0.2, 0.1, 0.04, '#c0392b', x, 0.75, -1.71);
+		sphere(g, 0.08, PALETTE.headlight, x, 0.72, 1.7, 8);
+		box(g, 0.2, 0.1, 0.04, PALETTE.tailLight, x, 0.75, -1.71);
 	}
 	box(g, 1.44, 0.12, 0.12, PALETTE.kerbBlack, 0, 0.38, 1.68);
 	box(g, 1.44, 0.12, 0.12, PALETTE.kerbBlack, 0, 0.38, -1.68);
@@ -71,6 +71,7 @@ export function createScooter(rand: () => number): THREE.Group {
 	box(g, 0.34, 0.5, 0.2, body, 0, 0.75, 0.5);
 	box(g, 0.3, 0.1, 0.55, PALETTE.kerbBlack, 0, 0.75, -0.2);
 	box(g, 0.6, 0.04, 0.04, PALETTE.metal, 0, 1.05, 0.55);
+	sphere(g, 0.07, PALETTE.headlight, 0, 0.92, 0.62, 8);
 	wheel(g, 0.2, 0.1, 0, 0.5);
 	wheel(g, 0.2, 0.1, 0, -0.45);
 	rider(

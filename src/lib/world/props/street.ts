@@ -10,7 +10,7 @@ export function createStreetLamp(): THREE.Group {
 	const g = new THREE.Group();
 	cylinder(g, 0.05, 0.08, 4, PALETTE.metal, 0, 2, 0, 6);
 	box(g, 0.07, 0.07, 1.0, PALETTE.metal, 0, 3.95, 0.45);
-	box(g, 0.22, 0.1, 0.4, '#f7e7a8', 0, 3.88, 0.9);
+	box(g, 0.22, 0.1, 0.4, PALETTE.lampHead, 0, 3.88, 0.9);
 	return g;
 }
 

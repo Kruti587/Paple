@@ -5,10 +5,20 @@ import type { MoveInput } from './input';
 import { Layout } from './layout';
 import { disposeMaterials, toon } from './materials';
 import { mergeStatic } from './merge';
-import { OutlineRenderer } from './outlinePass';
+import { CYCLE_SECONDS, hourAt, sampleLighting, SPAN_HOURS, START_HOUR } from './dayCycle';
+import { NightLights } from './nightLights';
+import { GLOW_LAYER, OutlineRenderer } from './outlinePass';
 import { createPlanet, type GroundPatch } from './planet';
 import { PlayerController } from './player';
-import { createGopuram, createHouse, createVidhanaSoudha, type Building } from './props/buildings';
+import {
+	createApartmentBlock,
+	createCornerShop,
+	createGopuram,
+	createHouse,
+	createRowHouse,
+	createVidhanaSoudha,
+	type Building
+} from './props/buildings';
 import { createClouds } from './props/clouds';
 import {
 	createBench,
@@ -37,6 +47,11 @@ export interface World {
 	npcObjects: THREE.Object3D[];
 	setAnimationLoop(callback: XRFrameRequestCallback | null): void;
 	update(dt: number, elapsed: number, input: MoveInput): void;
+	/** Current in-game hour (8 = 8 AM … 20 = 8 PM). */
+	hour(): number;
+	/** Jump the clock forward/back by in-game hours (debug / impatience). */
+	skipHours(hours: number): void;
+	setHour(hour: number): void;
 	render(elapsed: number): void;
 	resize(width: number, height: number): void;
 	/** NPC within talking distance of the player, if any. */
@@ -62,8 +77,12 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	renderer.shadowMap.type = THREE.PCFShadowMap;
 	const scene = new THREE.Scene();
 	const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+	camera.layers.enable(GLOW_LAYER);
 
-	scene.add(new THREE.AmbientLight(0xffffff, 1.35));
+	const ambient = new THREE.AmbientLight(0xffffff, 1.35);
+	scene.add(ambient);
+	const nightLights = new NightLights();
+	scene.add(nightLights.group);
 	const sun = new THREE.DirectionalLight(0xfff4e0, 2.1);
 	sun.castShadow = true;
 	sun.shadow.mapSize.set(2048, 2048);
@@ -243,8 +262,15 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	placeOnFootpath(createCow(false), crossRoad, 0.8, -1, 0.7, 0.9, true);
 
 	// Street lamps along the main road, electricity poles + wires along the cross road.
-	for (let k = 0; k < 16; k++)
-		placeOnFootpath(createStreetLamp(), mainRoad, k / 16 + 0.02, 1, 0.15, 0.4);
+	for (let k = 0; k < 16; k++) {
+		const lamp = createStreetLamp();
+		const f = placeOnFootpath(lamp, mainRoad, k / 16 + 0.02, 1, 0.15, 0.4);
+		if (!f) continue;
+		// Night glow: a pool of light on the road under the lamp head, and a halo round it.
+		lamp.updateMatrixWorld(true);
+		nightLights.addHalo(lamp.localToWorld(new THREE.Vector3(0, 3.85, 0.9)));
+		nightLights.addPool(stepAlong(f.up, f.right.clone().negate(), 0.9));
+	}
 	{
 		const count = 18;
 		const wirePairs: [THREE.Vector3, THREE.Vector3][] = [];
@@ -264,12 +290,22 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	}
 
 	// --- Houses & avenue trees lining both roads -----------------------------
+	// Mostly two-storey homes; Bangalore streets are packed wall-to-wall.
+	const randomBuilding = (): Building => {
+		const r = rand();
+		if (r < 0.55) return createHouse(rand);
+		if (r < 0.8) return createRowHouse(rand);
+		if (r < 0.95) return createCornerShop(rand);
+		return createApartmentBlock(rand);
+	};
+
 	for (const road of roads) {
 		for (const side of [1, -1] as const) {
-			let u = rand() * 0.02;
+			let u = rand() * 0.01;
 			while (u < 1) {
 				const roll = rand();
-				if (roll < 0.2) {
+				if (roll < 0.07) {
+					// Occasional avenue tree squeezed between buildings
 					const tree = createTree(
 						pick(rand, ['gulmohar', 'jacaranda', 'rain', 'palm'] as TreeKind[]),
 						rand
@@ -279,22 +315,85 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 						addStatic(tree.group, f.up, f.forward);
 						layout.reserve(f.up, tree.radius + 0.4);
 					}
-					u += 3 / road.length;
-				} else if (roll < 0.85) {
-					const house = createHouse(rand);
-					if (placeBuilding(house, road, u, side) && rand() < 0.3) {
+					u += 2.5 / road.length;
+				} else if (roll < 0.98) {
+					const house = randomBuilding();
+					if (placeBuilding(house, road, u, side) && rand() < 0.25) {
 						const f = road.frameAt(u, side * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH * 0.55));
 						if (layout.isFree(f.up, 0.5, 0.1)) {
 							addStatic(createRangoli(rand), f.up, f.forward, 0.01);
 							layout.reserve(f.up, 0.5, false);
 						}
 					}
-					u += (house.width + range(rand, 0.4, 1.2)) / road.length;
+					// Tight spacing — Bangalore houses share walls
+					u += (house.width + range(rand, 0.05, 0.3)) / road.length;
 				} else {
-					u += 2.5 / road.length;
+					// Rare gap (narrow alley between buildings)
+					u += 1.2 / road.length;
 				}
 			}
+			// Back row behind the roadside houses, across a narrow service lane.
+			u = rand() * 0.01;
+			while (u < 1) {
+				const house = randomBuilding();
+				placeBuilding(house, road, u, side, range(rand, 5.2, 5.8));
+				u += (house.width + range(rand, 0.05, 0.3)) / road.length;
+			}
 		}
+	}
+
+	// --- Dense off-road neighbourhoods (Bangalore galli clusters) -------------
+	// Grids of houses facing each other across narrow lanes, like the residential
+	// pockets of Jayanagar, Malleshwaram and Basavanagudi.
+	const placeClusterBuilding = (
+		b: Building,
+		dir: THREE.Vector3,
+		facing: THREE.Vector3
+	): boolean => {
+		if (!layout.boxIsFree(dir, facing, b.width, b.depth, FOOTPATH_WIDTH)) return false;
+		addStatic(b.group, dir, facing);
+		layout.reserveBox(dir, facing, b.width, b.depth);
+		return true;
+	};
+
+	const LANE_WIDTH = 1.6;
+	for (let ci = 0; ci < 18; ci++) {
+		const center = layout.randomFreeSpot(2.5, 2.5);
+		if (!center) continue;
+		const along = anyTangent(center).applyAxisAngle(center, rand() * Math.PI);
+		const across = new THREE.Vector3().crossVectors(center, along).normalize();
+		let placed = 0;
+		// Rows of houses: each pair of rows faces each other across a lane (a galli),
+		// and pairs sit back to back.
+		for (let row = 0; row < 4; row++) {
+			const facesLane = row % 2 === 0 ? 1 : -1;
+			const pair = Math.floor(row / 2);
+			const rowOffset = -7 + pair * (2 * 4 + LANE_WIDTH + 0.3) + (row % 2) * (4 + LANE_WIDTH);
+			const rowCentre = stepAlong(center, across, rowOffset);
+			const rowAlong = along.clone().addScaledVector(rowCentre, -along.dot(rowCentre)).normalize();
+			let x = -7 + rand();
+			while (x < 7) {
+				const b = randomBuilding();
+				const pos = stepAlong(rowCentre, rowAlong, x + b.width / 2);
+				const facing = across.clone().multiplyScalar(facesLane);
+				if (placeClusterBuilding(b, pos, facing)) placed++;
+				x += b.width + range(rand, 0.05, 0.25);
+			}
+		}
+		// Dusty red-earth lanes under the neighbourhood
+		if (placed > 3) patches.push({ dir: center, radius: 8, color: PALETTE.lateriteLight });
+	}
+
+	// Infill: squeeze more homes into any remaining open ground.
+	for (let i = 0; i < 260; i++) {
+		const b = randomBuilding();
+		const p = layout.randomFreeSpot(Math.min(b.width, b.depth) / 2 + 0.3, 1.2, 20);
+		if (!p) continue;
+		// Face the nearest road, as homes do.
+		const road = roads.reduce((best, r) => (r.distanceTo(p) < best.distanceTo(p) ? r : best));
+		const toRoad = road.frameAt(road.nearestU(p)).up.clone().sub(p);
+		const facing = toRoad.lengthSq() > 1e-8 ? toRoad : anyTangent(p);
+		placeClusterBuilding(b, p, facing.addScaledVector(p, -facing.dot(p)).normalize());
 	}
 
 	// --- Scattered trees, bushes, flower carpets ------------------------------
@@ -309,7 +408,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		'palm',
 		'palm'
 	];
-	for (let i = 0; i < 55; i++) {
+	for (let i = 0; i < 32; i++) {
 		const kind = pick(rand, kinds);
 		const tree = createTree(kind, rand);
 		const p = layout.randomFreeSpot(tree.canopy * 0.6, 1);
@@ -436,15 +535,64 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		}
 	};
 
-	const updateSun = () => {
-		const right = tmp.crossVectors(player.viewForward, player.up).normalize();
-		const dir = player.up
-			.clone()
-			.add(right.multiplyScalar(0.5))
-			.addScaledVector(player.viewForward, -0.35)
+	// --- Day cycle ---------------------------------------------------------
+	// Offset into the cycle (seconds). Start just after the 8 AM fade-in.
+	let clockOffset = (0.3 / SPAN_HOURS) * CYCLE_SECONDS;
+	let currentHour = START_HOUR;
+	let lastElapsed = 0;
+	const lighting = sampleLighting(START_HOUR);
+	const sunDir = new THREE.Vector3();
+	const moonDir = new THREE.Vector3();
+	const lightDir = new THREE.Vector3();
+	const horizontal = new THREE.Vector3();
+
+	/**
+	 * The sun's path is framed relative to the camera (like the old fixed key light) so the
+	 * planet always looks good: it rises behind-right, swings past the right side through the
+	 * day, and sets front-left — putting the pink sunset glow in view. The moon rides high behind.
+	 */
+	const updateSky = (elapsed: number) => {
+		currentHour = hourAt(elapsed + clockOffset);
+		const l = sampleLighting(currentHour, lighting);
+		const up = player.up;
+		const right = tmp.crossVectors(player.viewForward, up).normalize();
+
+		const azimuth = THREE.MathUtils.degToRad(THREE.MathUtils.lerp(-53, 120, l.dayProgress));
+		horizontal
+			.copy(right)
+			.multiplyScalar(Math.cos(azimuth))
+			.addScaledVector(player.viewForward, Math.sin(azimuth));
+		const elev = THREE.MathUtils.degToRad(l.elevation);
+		sunDir
+			.copy(up)
+			.multiplyScalar(Math.sin(elev))
+			.addScaledVector(horizontal, Math.cos(elev))
 			.normalize();
+		moonDir
+			.copy(up)
+			.multiplyScalar(0.8)
+			.addScaledVector(right, -0.35)
+			.addScaledVector(player.viewForward, -0.45)
+			.normalize();
+
+		// Light never comes from below the horizon: clamp the sun, then hand over to the moon.
+		const lowElev = THREE.MathUtils.degToRad(Math.max(l.elevation, 3));
+		lightDir
+			.copy(up)
+			.multiplyScalar(Math.sin(lowElev))
+			.addScaledVector(horizontal, Math.cos(lowElev));
+		lightDir.lerp(moonDir, THREE.MathUtils.smoothstep(l.night, 0.3, 0.9)).normalize();
+
+		sun.color.copy(l.sun);
+		sun.intensity = l.sunIntensity;
+		sun.shadow.intensity = THREE.MathUtils.lerp(0.55, 0.3, l.night);
+		ambient.color.copy(l.ambient);
+		ambient.intensity = l.ambientIntensity;
 		sun.target.position.copy(player.position);
-		sun.position.copy(player.position).addScaledVector(dir, 30);
+		sun.position.copy(player.position).addScaledVector(lightDir, 30);
+
+		nightLights.set(l.night);
+		outline.setSky(l, up, l.night > 0.55 ? moonDir : sunDir);
 	};
 
 	return {
@@ -453,13 +601,26 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		npcObjects: npcs.map((n) => n.character.group),
 		setAnimationLoop: (callback) => renderer.setAnimationLoop(callback),
 		update(dt, elapsed, input) {
+			lastElapsed = elapsed;
 			// Traffic reacts to where the player is, then the player can't walk through vehicles.
 			traffic.update(dt, player.up);
 			player.update(dt, input, traffic.colliders);
 			player.updateCamera(camera, dt);
 			updateNpcs(elapsed);
 			clouds.update(dt);
-			updateSun();
+			updateSky(elapsed);
+		},
+		hour: () => currentHour,
+		skipHours(hours) {
+			clockOffset += (hours / SPAN_HOURS) * CYCLE_SECONDS;
+		},
+		setHour(hour) {
+			const target =
+				((THREE.MathUtils.clamp(hour, START_HOUR, START_HOUR + SPAN_HOURS - 0.01) - START_HOUR) /
+					SPAN_HOURS) *
+				CYCLE_SECONDS;
+			const now = ((hourAt(lastElapsed + clockOffset) - START_HOUR) / SPAN_HOURS) * CYCLE_SECONDS;
+			clockOffset += target - now;
 		},
 		render(elapsed) {
 			outline.render(elapsed);
@@ -484,6 +645,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		},
 		dispose() {
 			outline.dispose();
+			nightLights.dispose();
 			scene.traverse((o) => {
 				const m = o as THREE.Mesh;
 				if (m.isMesh) m.geometry.dispose();

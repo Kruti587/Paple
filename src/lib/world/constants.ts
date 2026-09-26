@@ -37,11 +37,35 @@ export const PALETTE = {
 	coconut: '#8a6a3a',
 	bush: '#4f7f3f',
 
-	houses: ['#e8a5a0', '#7cc7c0', '#eed27a', '#b9a5d6', '#a9d8b1', '#f2b58a', '#efe9dd', '#9cc2e6'],
+	// Vibrant Bengaluru house paints — the hot pinks, marigolds and turquoises of old neighbourhoods.
+	houses: [
+		'#f7708f',
+		'#ffc15e',
+		'#3fc1c9',
+		'#9d6bd9',
+		'#f7894a',
+		'#8cc152',
+		'#2fb39a',
+		'#ef5da8',
+		'#3aa7e0',
+		'#f4d35e',
+		'#e86a4f',
+		'#b983ff',
+		'#5ad1a0',
+		'#ff9f68'
+	],
+	/** Contrasting trim for sunshades, parapets and balcony grills. */
+	trims: ['#ffffff', '#fff3d6', '#2f4858', '#ffe066', '#e8f7f4', '#3b3561'],
+	grill: ['#2f4858', '#1f6f5c', '#8a1c3c', '#ffffff', '#20507a'],
 	shutters: ['#3d7fc4', '#d9534f', '#4caf7a', '#f0ad4e'],
 	roofTile: '#bf5a3a',
 	parapet: '#f3eee4',
 	window: '#3e4a52',
+	/** Same look as `window` by day; these ones light up at night. */
+	windowLit: '#3e4a53',
+	lampHead: '#f7e7a8',
+	headlight: '#fff6c9',
+	tailLight: '#c0392c',
 	door: '#7a4e32',
 	waterTank: '#2c2f33',
 

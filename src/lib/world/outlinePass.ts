@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { PALETTE } from './constants';
+import type { Lighting } from './dayCycle';
+
+/** Objects on this layer (additive light pools) render in colour only — no outlines. */
+export const GLOW_LAYER = 1;
+
+const OUTLINE_DAY = new THREE.Color(PALETTE.outline);
+const OUTLINE_NIGHT = new THREE.Color('#070914');
 
 const vertexShader = /* glsl */ `
 varying vec2 vUv;
@@ -24,7 +31,17 @@ uniform float uTime;
 uniform vec2 uFade;
 uniform vec3 uOutline;
 uniform vec3 uSkyTop;
+uniform vec3 uSkyMid;
 uniform vec3 uSkyBottom;
+uniform mat4 uInvProj;
+uniform mat4 uCamWorld;
+uniform vec3 uUp;
+uniform vec3 uSunDir;
+uniform vec3 uGlow;
+uniform float uGlowStrength;
+uniform float uNight;
+uniform vec3 uGrade;
+uniform float uTransition;
 varying vec2 vUv;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -37,11 +54,41 @@ float rawDepth(vec2 uv) { return texture2D(tDepth, uv).x; }
 float linearDepth(float d) { return -perspectiveDepthToViewZ(d, uNear, uFar); }
 vec3 normalAt(vec2 uv) { return texture2D(tNormal, uv).xyz * 2.0 - 1.0; }
 
+// World-space view ray for this pixel, so the sky gradient, sun and stars stay put as the camera orbits.
+vec3 viewRay(vec2 uv) {
+	vec4 v = uInvProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+	return normalize((uCamWorld * vec4(normalize(v.xyz / v.w), 0.0)).xyz);
+}
+
 vec3 sky(vec2 uv) {
+	vec3 ray = viewRay(uv);
+	// Blend of screen height and height above the local horizon: the camera usually looks down at the
+	// planet, so nearly all visible sky is near the horizon — screen height lets the upper bands show.
+	float h = uv.y * 0.8 + dot(ray, uUp) * 0.5;
+	vec3 c = mix(uSkyBottom, uSkyMid, smoothstep(-0.05, 0.3, h));
+	c = mix(c, uSkyTop, smoothstep(0.3, 0.85, h));
+
+	// Soft watercolour blotches
 	vec2 p = uv * vec2(uResolution.x / uResolution.y, 1.0);
-	vec3 c = mix(uSkyBottom, uSkyTop, smoothstep(0.0, 1.0, uv.y));
 	float blot = noise(p * 3.0 + vec2(uTime * 0.01, 0.0)) * 0.6 + noise(p * 9.0) * 0.4;
-	return mix(c, c * 1.05 + 0.02, smoothstep(0.55, 0.7, blot));
+	c = mix(c, c * 1.05 + 0.02, smoothstep(0.55, 0.7, blot));
+
+	// Sun glow: wide pink/gold bloom plus a bright core; the same disc becomes a pale moon at night.
+	float s = max(dot(ray, uSunDir), 0.0);
+	c += uGlow * uGlowStrength * (pow(s, 3.0) * 0.45 + pow(s, 24.0) * 0.5);
+	float disc = smoothstep(0.9990, 0.9994, s);
+	c = mix(c, mix(vec3(1.0, 0.93, 0.85), vec3(0.93, 0.95, 1.0), uNight), disc * max(uGlowStrength, uNight));
+
+	// Stars: hashed cells on the celestial sphere, twinkling, fading in with night.
+	if (uNight > 0.01) {
+		vec3 q = ray * 90.0;
+		vec3 cell = floor(q);
+		float r = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+		float star = step(0.985, r) * smoothstep(0.45, 0.0, length(fract(q) - 0.5));
+		float twinkle = 0.6 + 0.4 * sin(uTime * 2.0 + r * 50.0);
+		c += vec3(1.0, 0.97, 0.9) * star * twinkle * uNight * smoothstep(0.0, 0.25, h);
+	}
+	return c;
 }
 
 void main() {
@@ -76,13 +123,17 @@ void main() {
 		float edge = max(depthEdge, normalEdge);
 		edge *= 1.0 - smoothstep(uFade.x, uFade.y, z0);
 
-		// Atmospheric haze towards the sky colour.
+		// Time-of-day colour grade (sunset pink, night blue), then haze towards the sky colour.
+		col *= uGrade;
 		col = mix(col, skyCol, smoothstep(18.0, 60.0, z0) * 0.35);
 		col = mix(col, uOutline, edge * 0.92);
 	}
 
+	// Brief fade through deep blue when the day wraps from 8 PM back to 8 AM.
+	col = mix(col, vec3(0.02, 0.03, 0.07), uTransition);
+
 	// Paper grain + soft vignette
-	col += (hash(vUv * uResolution) - 0.5) * 0.018;
+	col *= 1.0 + (hash(vUv * uResolution) - 0.5) * 0.035; // multiplicative so dark night tones stay clean
 	vec2 v = vUv - 0.5;
 	col *= 1.0 - dot(v, v) * 0.25;
 
@@ -126,7 +177,17 @@ export class OutlineRenderer {
 				uFade: { value: new THREE.Vector2(30, 70) },
 				uOutline: { value: new THREE.Color(PALETTE.outline) },
 				uSkyTop: { value: new THREE.Color(PALETTE.skyTop) },
-				uSkyBottom: { value: new THREE.Color(PALETTE.skyBottom) }
+				uSkyMid: { value: new THREE.Color(PALETTE.skyTop) },
+				uSkyBottom: { value: new THREE.Color(PALETTE.skyBottom) },
+				uInvProj: { value: new THREE.Matrix4() },
+				uCamWorld: { value: new THREE.Matrix4() },
+				uUp: { value: new THREE.Vector3(0, 1, 0) },
+				uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+				uGlow: { value: new THREE.Color() },
+				uGlowStrength: { value: 0 },
+				uNight: { value: 0 },
+				uGrade: { value: new THREE.Color(1, 1, 1) },
+				uTransition: { value: 0 }
 			}
 		});
 		this.quad = new FullScreenQuad(this.material);
@@ -143,9 +204,29 @@ export class OutlineRenderer {
 		this.material.uniforms.uThickness.value = 1.6 * dpr;
 	}
 
+	/** Per-frame sky/lighting inputs from the day cycle. */
+	setSky(l: Lighting, up: THREE.Vector3, sunDir: THREE.Vector3) {
+		const u = this.material.uniforms;
+		u.uSkyTop.value.copy(l.skyTop);
+		u.uSkyMid.value.copy(l.skyMid);
+		u.uSkyBottom.value.copy(l.skyBottom);
+		u.uGlow.value.copy(l.glow);
+		u.uGlowStrength.value = l.glowStrength;
+		u.uNight.value = l.night;
+		u.uGrade.value.copy(l.grade);
+		u.uTransition.value = l.transition;
+		// Ink goes deep navy at night so lines stay darker than the moonlit surfaces.
+		u.uOutline.value.copy(OUTLINE_DAY).lerp(OUTLINE_NIGHT, l.night);
+		u.uUp.value.copy(up);
+		u.uSunDir.value.copy(sunDir);
+	}
+
 	render(time: number) {
 		const { renderer, scene, camera } = this;
-		this.material.uniforms.uTime.value = time;
+		const u = this.material.uniforms;
+		u.uTime.value = time;
+		u.uInvProj.value.copy(camera.projectionMatrixInverse);
+		u.uCamWorld.value.copy(camera.matrixWorld);
 
 		renderer.setRenderTarget(this.colorTarget);
 		renderer.clear();
@@ -154,10 +235,13 @@ export class OutlineRenderer {
 		// Normals pass: reuse this frame's shadow map instead of re-rendering it.
 		const autoUpdate = renderer.shadowMap.autoUpdate;
 		renderer.shadowMap.autoUpdate = false;
+		// Glow decals (GLOW_LAYER) are colour-only: keep them out of the normals so they get no ink lines.
 		scene.overrideMaterial = this.normalMaterial;
+		camera.layers.disable(GLOW_LAYER);
 		renderer.setRenderTarget(this.normalTarget);
 		renderer.clear();
 		renderer.render(scene, camera);
+		camera.layers.enable(GLOW_LAYER);
 		scene.overrideMaterial = null;
 		renderer.shadowMap.autoUpdate = autoUpdate;
 
