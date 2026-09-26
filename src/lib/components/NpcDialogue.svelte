@@ -109,7 +109,7 @@
 			{#if loading}
 				<div class="loading-state">
 					<div class="spinner" aria-label="Loading"></div>
-					<span>Thinking via Groq...</span>
+					<span>Thinking via Anakin...</span>
 				</div>
 			{:else if errorText}
 				<p class="error">{errorText}</p>

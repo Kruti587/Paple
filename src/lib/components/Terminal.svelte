@@ -73,9 +73,9 @@
 			return;
 		}
 
-		// Otherwise, query the Groq AI mainframe assistant!
+		// Otherwise, query the Anakin AI mainframe assistant!
 		loading = true;
-		lines = [...lines, { text: `[SYSTEM] Querying Groq neural security link...`, kind: 'ok' }];
+		lines = [...lines, { text: `[SYSTEM] Querying Anakin neural security link...`, kind: 'ok' }];
 
 		try {
 			const res = await fetch('/api/quest/terminal', {
