@@ -230,61 +230,265 @@ export function createPlayer(): Character {
 
 const NPC_STYLES: Record<string, Style> = {
 	alien: {
-		shirt: '#b9a5d6',
-		pants: '#6d5a99',
+		shirt: '#4a3d69', // Dark sci-fi suit
+		pants: '#322847',
 		skin: '#8fd16a',
 		decorate: (g) => {
+			// Alien eyes (large, black, slanted)
+			const eyeL = sphere(g, 0.08, '#111111', -0.09, 1.34, 0.16, 8);
+			eyeL.scale.set(1.2, 0.7, 1);
+			eyeL.rotation.z = -0.3;
+			eyeL.rotation.y = 0.2;
+			const eyeR = sphere(g, 0.08, '#111111', 0.09, 1.34, 0.16, 8);
+			eyeR.scale.set(1.2, 0.7, 1);
+			eyeR.rotation.z = 0.3;
+			eyeR.rotation.y = -0.2;
+
+			// Antennae
 			for (const s of [-1, 1]) {
-				const a = cylinder(g, 0.015, 0.015, 0.3, '#8fd16a', s * 0.1, 1.6, 0, 5);
-				a.rotation.z = -s * 0.3;
-				sphere(g, 0.05, '#f5d547', s * 0.15, 1.75, 0, 6);
+				const a = cylinder(g, 0.015, 0.015, 0.35, '#8fd16a', s * 0.12, 1.6, -0.05, 5);
+				a.rotation.z = -s * 0.4;
+				a.rotation.x = -0.1;
+				// Glowing tips
+				sphere(g, 0.05, '#55ff55', s * 0.18, 1.75, -0.07, 6);
 			}
-			for (const x of [-0.08, 0.08]) sphere(g, 0.06, '#1b1b1b', x, 1.33, 0.17, 8);
+
+			// Sci-fi suit chest panel
+			box(g, 0.25, 0.2, 0.05, '#222222', 0, 0.85, 0.2);
+			// Glowing buttons on panel
+			box(g, 0.04, 0.04, 0.02, '#ff3333', -0.06, 0.88, 0.22);
+			box(g, 0.04, 0.04, 0.02, '#33ff33', 0, 0.88, 0.22);
+			box(g, 0.04, 0.04, 0.02, '#3333ff', 0.06, 0.88, 0.22);
+			box(g, 0.16, 0.02, 0.02, '#ffcc00', 0, 0.8, 0.22);
+
+			// Metallic belt and buckle
+			box(g, 0.42, 0.08, 0.42, '#555555', 0, 0.55, 0);
+			box(g, 0.12, 0.1, 0.04, '#aaaaaa', 0, 0.55, 0.22);
 		}
 	},
 	chef: {
-		shirt: '#f4f1ea',
-		pants: '#3a3a3a',
-		hair: '#2b2320',
-		decorate: (g) => {
-			cylinder(g, 0.18, 0.16, 0.25, '#ffffff', 0, 1.55, 0, 10);
-			sphere(g, 0.24, '#ffffff', 0, 1.72, 0, 10).scale.y = 0.6;
-			box(g, 0.36, 0.45, 0.05, '#e8e0cf', 0, 0.72, 0.23);
+		shirt: '#ffffff', // Clean white chef coat
+		pants: '#111111', // Black/houndstooth pants
+		skin: '#f2cdab',
+		hair: '#3d2616', // Hidden under hat, but has a moustache
+		decorate: (g, extra) => {
+			// Detailed Chef Hat (Toque)
+			// Base band
+			cylinder(g, 0.19, 0.19, 0.15, '#f8f8f8', 0, 1.48, 0, 12);
+			// Puffy top (multiple overlapping spheres)
+			sphere(g, 0.22, '#fcfcfc', 0, 1.68, 0, 10).scale.set(1.2, 0.8, 1.2);
+			sphere(g, 0.18, '#fcfcfc', 0.15, 1.65, 0.1, 8);
+			sphere(g, 0.18, '#fcfcfc', -0.15, 1.65, 0.1, 8);
+			sphere(g, 0.18, '#fcfcfc', 0, 1.65, -0.15, 8);
+			
+			// Thick Moustache
+			const stacheL = cylinder(g, 0.02, 0.01, 0.08, '#3d2616', -0.04, 1.27, 0.2, 6);
+			stacheL.rotation.z = 1.2;
+			stacheL.rotation.y = 0.4;
+			const stacheR = cylinder(g, 0.02, 0.01, 0.08, '#3d2616', 0.04, 1.27, 0.2, 6);
+			stacheR.rotation.z = -1.2;
+			stacheR.rotation.y = -0.4;
+
+			// Red Neckerchief
+			box(g, 0.3, 0.08, 0.28, '#cc2222', 0, 1.05, 0);
+			// Neckerchief knot/tails hanging down
+			const tie1 = box(g, 0.05, 0.15, 0.03, '#cc2222', -0.04, 0.98, 0.15);
+			tie1.rotation.z = 0.3;
+			const tie2 = box(g, 0.05, 0.15, 0.03, '#cc2222', 0.04, 0.98, 0.15);
+			tie2.rotation.z = -0.3;
+
+			// Double-breasted jacket details (black buttons)
+			for (let y = 0.65; y <= 0.95; y += 0.15) {
+				sphere(g, 0.02, '#111111', -0.08, y, 0.21, 5).scale.z = 0.5;
+				sphere(g, 0.02, '#111111', 0.08, y, 0.21, 5).scale.z = 0.5;
+			}
+			// Coat seam
+			box(g, 0.01, 0.45, 0.02, '#dddddd', 0, 0.8, 0.2);
+
+			// Frying pan in right hand
+			// Handle
+			const handle = cylinder(g, 0.015, 0.015, 0.25, '#222222', 0.35, 0.65, 0.2, 6);
+			handle.rotation.x = -1.2;
+			// Pan body
+			const pan = cylinder(g, 0.18, 0.15, 0.04, '#333333', 0.35, 0.72, 0.38, 12);
+			pan.rotation.x = -1.2;
+			// Fried egg inside the pan!
+			const eggWhite = cylinder(g, 0.06, 0.06, 0.01, '#ffffff', 0.33, 0.73, 0.38, 8);
+			eggWhite.rotation.x = -1.2;
+			const eggYolk = sphere(g, 0.025, '#ffcc00', 0.32, 0.74, 0.37, 6);
+			eggYolk.rotation.x = -1.2;
 		}
 	},
 	caveman: {
-		shirt: '#9b6b3f',
-		pants: '#7a5230',
-		hair: '#3b2a1e',
+		shirt: '#a37048', // Animal pelt
+		pants: '#5c3d26', // Loincloth/fur pants
+		skin: '#d49b6c',
+		hair: '#2a1a10',
 		decorate: (g) => {
-			sphere(g, 0.24, '#3b2a1e', 0, 1.42, -0.05, 8).scale.set(1.15, 0.8, 1.1);
-			sphere(g, 0.12, '#3b2a1e', 0, 1.18, 0.14, 8).scale.set(1.2, 1, 0.6);
-			const club = cylinder(g, 0.09, 0.04, 0.7, '#8b6a4a', 0.42, 0.75, 0.15, 6);
+			// Wild, bushy hair
+			sphere(g, 0.26, '#2a1a10', 0, 1.4, -0.05, 10).scale.set(1.15, 0.9, 1.1);
+			sphere(g, 0.16, '#2a1a10', -0.15, 1.35, -0.05, 8).scale.set(1, 1.2, 1);
+			sphere(g, 0.16, '#2a1a10', 0.15, 1.35, -0.05, 8).scale.set(1, 1.2, 1);
+			sphere(g, 0.12, '#2a1a10', 0, 1.5, 0.05, 8); // Top tuft
+
+			// Unibrow
+			box(g, 0.18, 0.025, 0.03, '#2a1a10', 0, 1.36, 0.2);
+			
+			// Big bushy beard
+			sphere(g, 0.18, '#2a1a10', 0, 1.2, 0.15, 8).scale.set(1.2, 1, 0.8);
+			sphere(g, 0.12, '#2a1a10', -0.12, 1.22, 0.12, 6);
+			sphere(g, 0.12, '#2a1a10', 0.12, 1.22, 0.12, 6);
+
+			// Animal pelt details (one-shoulder strap)
+			// Bare right shoulder/chest
+			box(g, 0.18, 0.2, 0.05, '#d49b6c', 0.12, 0.95, 0.2); 
+			// Diagonal strap over left shoulder
+			const strap = box(g, 0.1, 0.35, 0.05, '#4a2e16', -0.08, 0.95, 0.21);
+			strap.rotation.z = -0.4;
+			// Jagged pelt trim at the bottom
+			for(let i=0; i<5; i++) {
+				const trim = box(g, 0.08, 0.1, 0.04, '#a37048', -0.16 + i*0.08, 0.5, 0.2);
+				trim.rotation.z = (i%2 === 0) ? 0.2 : -0.2;
+			}
+			// Belt (rope/vine)
+			cylinder(g, 0.21, 0.21, 0.04, '#7a964f', 0, 0.55, 0, 10);
+
+			// Detailed Spiked Club in right hand
+			const club = cylinder(g, 0.04, 0.02, 0.5, '#5c4028', 0.35, 0.65, 0.15, 6);
 			club.rotation.x = 0.4;
+			// Club head (thicker)
+			const head = cylinder(g, 0.08, 0.06, 0.25, '#4a321e', 0.35, 0.8, 0.21, 6);
+			head.rotation.x = 0.4;
+			// Spikes on the club
+			for(let i=0; i<4; i++) {
+				const spike = cylinder(g, 0.01, 0.03, 0.1, '#a69f91', 0.35, 0.8, 0.21, 4);
+				spike.rotation.x = 0.4;
+				spike.rotation.z = (Math.PI / 2) * i;
+				spike.rotation.y = Math.PI / 2;
+			}
 		}
 	},
 	diver: {
-		shirt: '#f07c3a',
-		pants: '#2f4f6f',
-		hair: '#2b2320',
-		decorate: (g) => {
-			box(g, 0.34, 0.12, 0.08, '#5fb3d1', 0, 1.34, 0.18);
-			cylinder(g, 0.02, 0.02, 0.35, '#f5d547', 0.2, 1.4, 0.05, 5);
-			cylinder(g, 0.1, 0.1, 0.45, '#9aa3a8', 0, 0.8, -0.3, 10);
+		shirt: '#1a1a1a', // Black wetsuit
+		pants: '#1a1a1a',
+		skin: '#e0ac82',
+		decorate: (g, extra) => {
+			// Orange wetsuit accents (vest area)
+			cylinder(g, 0.21, 0.21, 0.4, '#e65c00', 0, 0.78, 0, 10);
+			// Wetsuit zipper
+			box(g, 0.015, 0.4, 0.02, '#333333', 0, 0.78, 0.21);
+
+			// Scuba diving mask/visor
+			// Mask frame
+			box(g, 0.32, 0.16, 0.1, '#333333', 0, 1.34, 0.18);
+			// Glass visor (cyan, slightly transparent looking via color)
+			box(g, 0.28, 0.12, 0.04, '#4dd2ff', 0, 1.34, 0.22);
+			// Mask strap around head
+			box(g, 0.34, 0.06, 0.25, '#222222', 0, 1.34, -0.05);
+			// Snorkel / Breathing apparatus in mouth
+			box(g, 0.08, 0.06, 0.06, '#222222', 0, 1.22, 0.22);
+
+			// Oxygen Tank on back
+			// Tank body (Yellow)
+			cylinder(g, 0.14, 0.14, 0.5, '#fce300', 0, 0.8, -0.3, 10);
+			// Tank base
+			cylinder(g, 0.145, 0.145, 0.05, '#333333', 0, 0.55, -0.3, 10);
+			// Tank valve (silver)
+			cylinder(g, 0.04, 0.04, 0.08, '#aaaaaa', 0, 1.08, -0.3, 6);
+			// Hose connecting tank to mouth
+			const hose = cylinder(g, 0.02, 0.02, 0.3, '#333333', 0.12, 1.15, -0.05, 6);
+			hose.rotation.x = -0.8;
+			hose.rotation.z = -0.5;
+
+			// Weight belt
+			box(g, 0.43, 0.06, 0.43, '#222222', 0, 0.55, 0);
+			// Lead weights
+			box(g, 0.08, 0.08, 0.04, '#888888', 0.15, 0.55, 0.22);
+			box(g, 0.08, 0.08, 0.04, '#888888', -0.15, 0.55, 0.22);
+			box(g, 0.08, 0.08, 0.04, '#888888', 0, 0.55, -0.22);
+
+			// Flippers attached to legs
+			if (extra.legs) {
+				const leftLeg = extra.legs[0];
+				const rightLeg = extra.legs[1];
+				// Left flipper (local coords: y=0.5 is pivot, so -0.5 is ground)
+				const flipL = box(leftLeg, 0.16, 0.03, 0.35, '#e65c00', 0, -0.48, 0.1);
+				flipL.rotation.x = 0.1;
+				// Right flipper
+				const flipR = box(rightLeg, 0.16, 0.03, 0.35, '#e65c00', 0, -0.48, 0.1);
+				flipR.rotation.x = 0.1;
+			}
+
+			// Flashlight in right hand
+			cylinder(g, 0.02, 0.02, 0.15, '#222222', 0.3, 0.55, 0.15, 8); // Handle
+			const bulb = cylinder(g, 0.04, 0.02, 0.08, '#dddddd', 0.3, 0.55, 0.25, 8); // Head
+			bulb.rotation.x = Math.PI / 2;
+			const light = sphere(g, 0.03, '#ffffff', 0.3, 0.55, 0.28, 6); // Lens
+			// Glow aura for light
+			const auraMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.3 });
+			const aura = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), auraMat);
+			aura.position.set(0.3, 0.55, 0.3);
+			g.add(aura);
 		}
 	},
 	musician: {
-		shirt: '#8e5bb5',
-		pants: '#f2ede1',
-		hair: '#2b2320',
+		shirt: '#e3cd96', // Golden-cream kurta
+		pants: '#f5f0e1', // White dhoti
+		skin: '#a66a42', // Rich brown skin
+		hair: '#111111',
 		decorate: (g) => {
-			// Mridangam slung in front
-			const drum = cylinder(g, 0.13, 0.13, 0.55, '#8b5e3c', 0, 0.75, 0.3, 12);
-			drum.rotation.z = Math.PI / 2;
-			for (const x of [-0.28, 0.28]) {
-				const head = cylinder(g, 0.12, 0.12, 0.02, '#e8dcc0', x, 0.75, 0.3, 12);
-				head.rotation.z = Math.PI / 2;
+			// Neat, slicked traditional hair
+			sphere(g, 0.22, '#111111', 0, 1.4, -0.05, 10).scale.set(1.05, 0.85, 1.05);
+
+			// Dhoti folds (adds volume to the pants)
+			box(g, 0.35, 0.45, 0.25, '#f5f0e1', 0, 0.3, 0);
+			// Gold border on dhoti (kasavu style)
+			box(g, 0.36, 0.04, 0.26, '#d4af37', 0, 0.15, 0);
+
+			// Angavastram (shawl) draped over left shoulder
+			const shawl = box(g, 0.12, 0.55, 0.24, '#c93434', -0.14, 0.85, 0.05);
+			shawl.rotation.z = 0.1;
+			// Gold border on shawl
+			const shawlBorder = box(g, 0.13, 0.04, 0.25, '#d4af37', -0.16, 0.6, 0.05);
+			shawlBorder.rotation.z = 0.1;
+
+			// Gold chain / necklace
+			cylinder(g, 0.18, 0.18, 0.02, '#d4af37', 0, 1.05, 0.08, 8).rotation.x = 0.3;
+
+			// ── Detailed Mridangam ──
+			// Strapped across the front
+			const drumStrap = cylinder(g, 0.18, 0.18, 0.02, '#3b2513', 0, 0.85, 0, 12);
+			drumStrap.rotation.z = 0.6;
+			drumStrap.rotation.x = -0.2;
+
+			const mridangamGroup = new THREE.Group();
+			mridangamGroup.position.set(0, 0.65, 0.25);
+			mridangamGroup.rotation.z = Math.PI / 2 + 0.2;
+			mridangamGroup.rotation.x = 0.2;
+			g.add(mridangamGroup);
+
+			// Wood body (tapered at both ends)
+			// Left half
+			cylinder(mridangamGroup, 0.12, 0.16, 0.25, '#754019', 0, -0.125, 0, 12);
+			// Right half
+			cylinder(mridangamGroup, 0.16, 0.11, 0.25, '#754019', 0, 0.125, 0, 12);
+
+			// Leather straps (lacing) across the body
+			for (let i = 0; i < 8; i++) {
+				const lace = box(mridangamGroup, 0.015, 0.5, 0.015, '#221100', 0, 0, 0.16);
+				lace.rotation.y = (Math.PI / 4) * i;
 			}
+
+			// Left drum head (thoppi - larger, plain leather)
+			cylinder(mridangamGroup, 0.125, 0.125, 0.02, '#d4c3a3', 0, -0.25, 0, 12);
+			// Right drum head (valanthalai - smaller, with black syahi)
+			cylinder(mridangamGroup, 0.115, 0.115, 0.02, '#d4c3a3', 0, 0.25, 0, 12);
+			// Syahi (black tuning circle on the right head)
+			cylinder(mridangamGroup, 0.05, 0.05, 0.025, '#111111', 0, 0.25, 0, 12);
+
+			// Hands resting on the drum heads
+			sphere(g, 0.045, '#a66a42', -0.25, 0.75, 0.25, 6); // Left hand
+			sphere(g, 0.045, '#a66a42', 0.25, 0.65, 0.35, 6); // Right hand
 		}
 	}
 };
