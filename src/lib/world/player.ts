@@ -43,7 +43,8 @@ export class PlayerController {
 		return this.character.group.position;
 	}
 
-	update(dt: number, input: MoveInput): void {
+	/** `dynamicColliders` are moving obstacles (vehicles) re-supplied every frame. */
+	update(dt: number, input: MoveInput, dynamicColliders: Circle[] = []): void {
 		const right = new THREE.Vector3().crossVectors(this.viewForward, this.up).normalize();
 		const move = new THREE.Vector3()
 			.addScaledVector(this.viewForward, input.z)
@@ -54,9 +55,14 @@ export class PlayerController {
 			move.normalize();
 			const angle = ((input.run ? RUN_SPEED : WALK_SPEED) * dt) / PLANET_RADIUS;
 			this.up.multiplyScalar(Math.cos(angle)).addScaledVector(move, Math.sin(angle)).normalize();
-			this.resolveCollisions();
+			this.resolveCollisions(this.colliders);
 			// Turn smoothly towards the direction of travel.
 			this.facing.lerp(move, 1 - Math.exp(-dt * 12));
+		}
+		// Vehicles can nudge a standing player too (e.g. one easing back into its lane).
+		if (dynamicColliders.length) {
+			this.resolveCollisions(dynamicColliders);
+			if (moving) this.resolveCollisions(this.colliders);
 		}
 
 		// Parallel-transport tangent vectors onto the new tangent plane.
@@ -70,9 +76,9 @@ export class PlayerController {
 		placeOnSurface(this.character.group, this.up, this.facing, bob);
 	}
 
-	private resolveCollisions() {
+	private resolveCollisions(colliders: Circle[]) {
 		for (let pass = 0; pass < 2; pass++) {
-			for (const c of this.colliders) {
+			for (const c of colliders) {
 				const min = (c.radius + PLAYER_RADIUS) / PLANET_RADIUS;
 				const cos = this.up.dot(c.dir);
 				if (cos <= Math.cos(min)) continue;

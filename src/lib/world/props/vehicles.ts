@@ -4,6 +4,15 @@ import { box, cylinder, pick, sphere } from './util';
 
 // Vehicles face +Z, origin at road level. Kept as separate objects (not merged) because they move.
 
+export type VehicleKind = 'auto' | 'scooter' | 'car';
+
+/** Half-extents of each vehicle's footprint (m), used by traffic avoidance and collisions. */
+export const VEHICLE_SIZE: Record<VehicleKind, { halfLength: number; halfWidth: number }> = {
+	auto: { halfLength: 1.3, halfWidth: 0.65 },
+	scooter: { halfLength: 0.7, halfWidth: 0.3 },
+	car: { halfLength: 1.8, halfWidth: 0.72 }
+};
+
 function wheel(g: THREE.Object3D, r: number, w: number, x: number, z: number) {
 	const m = cylinder(g, r, r, w, PALETTE.tyre, x, r, z, 10);
 	m.rotation.z = Math.PI / 2;
@@ -32,6 +41,25 @@ export function createAuto(): THREE.Group {
 	wheel(g, 0.24, 0.16, -0.6, -0.65);
 	wheel(g, 0.24, 0.16, 0.6, -0.65);
 	rider(g, '#b59b6a', 0.75, 0.55);
+	return g;
+}
+
+/** Small hatchback — the other half of every Bengaluru traffic jam. */
+export function createCar(rand: () => number): THREE.Group {
+	const g = new THREE.Group();
+	const paint = pick(rand, ['#f2f2f2', '#c0392b', '#b8bec2', '#3d6fb4', '#e8b93a']);
+	box(g, 1.4, 0.55, 3.4, paint, 0, 0.6, 0);
+	box(g, 1.3, 0.55, 1.9, paint, 0, 1.15, -0.25);
+	box(g, 1.22, 0.42, 0.04, '#bcd6db', 0, 1.15, 0.72).rotation.x = -0.35;
+	box(g, 1.22, 0.4, 0.04, '#bcd6db', 0, 1.15, -1.21).rotation.x = 0.3;
+	for (const x of [-0.66, 0.66]) box(g, 0.04, 0.36, 1.5, '#bcd6db', x, 1.17, -0.25);
+	for (const x of [-0.5, 0.5]) {
+		sphere(g, 0.08, '#fff6c9', x, 0.72, 1.7, 8);
+		box(g, 0.2, 0.1, 0.04, '#c0392b', x, 0.75, -1.71);
+	}
+	box(g, 1.44, 0.12, 0.12, PALETTE.kerbBlack, 0, 0.38, 1.68);
+	box(g, 1.44, 0.12, 0.12, PALETTE.kerbBlack, 0, 0.38, -1.68);
+	for (const x of [-0.66, 0.66]) for (const z of [1.1, -1.1]) wheel(g, 0.28, 0.2, x, z);
 	return g;
 }
 

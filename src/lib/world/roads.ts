@@ -85,6 +85,14 @@ export class Road {
 		return idx / this.count;
 	}
 
+	/** Road coordinates of `dir`: loop parameter u and signed lateral offset (m, + = road's right). */
+	project(dir: THREE.Vector3): { u: number; offset: number } {
+		const u = this.nearestU(dir);
+		const i = Math.round(u * this.count) % this.count;
+		const offset = dir.clone().sub(this.samples[i]).dot(this.rights[i]) * PLANET_RADIUS;
+		return { u, offset };
+	}
+
 	/** Surface distance (m) from unit direction `dir` to the road centreline. */
 	distanceTo(dir: THREE.Vector3): number {
 		let best = -1;

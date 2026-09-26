@@ -23,12 +23,12 @@ import {
 } from './props/street';
 import { createTree, createTreeKatte, type TreeKind } from './props/trees';
 import { blob, pick, range, sphere } from './props/util';
-import { createAuto, createScooter } from './props/vehicles';
+import { createAuto, createCar, createScooter, type VehicleKind } from './props/vehicles';
+import { Traffic } from './traffic';
 import { buildRoadNetwork, Road, sphereCap } from './roads';
 import { anyTangent, mulberry32, placeOnSurface, stepAlong, toTangent } from './sphere';
 
 const TALK_DISTANCE = 2.4;
-const ROAD_HEIGHT = 0.06;
 
 export interface World {
 	camera: THREE.PerspectiveCamera;
@@ -42,15 +42,6 @@ export interface World {
 	/** NPC within talking distance of the player, if any. */
 	nearbyNpc(): string | null;
 	dispose(): void;
-}
-
-interface Vehicle {
-	object: THREE.Object3D;
-	road: Road;
-	u: number;
-	speed: number;
-	direction: 1 | -1;
-	lane: number;
 }
 
 interface Npc {
@@ -401,9 +392,10 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	);
 
 	// --- Traffic --------------------------------------------------------------
-	const vehicles: Vehicle[] = [];
+	const traffic = new Traffic();
 	const addVehicle = (
 		object: THREE.Object3D,
+		kind: VehicleKind,
 		road: Road,
 		u: number,
 		speed: number,
@@ -411,15 +403,17 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	) => {
 		object.traverse((o) => (o.castShadow = true));
 		scene.add(object);
-		vehicles.push({ object, road, u, speed, direction, lane: 0.85 });
+		traffic.add(object, kind, road, u, speed, direction);
 	};
-	addVehicle(createAuto(), mainRoad, 0.1, 4.5, 1);
-	addVehicle(createAuto(), mainRoad, 0.55, 5, 1);
-	addVehicle(createAuto(), mainRoad, 0.3, 4, -1);
-	addVehicle(createAuto(), mainRoad, 0.8, 4.8, -1);
-	addVehicle(createAuto(), crossRoad, 0.2, 4.2, -1);
+	addVehicle(createAuto(), 'auto', mainRoad, 0.1, 4.5, 1);
+	addVehicle(createAuto(), 'auto', mainRoad, 0.55, 5, 1);
+	addVehicle(createAuto(), 'auto', mainRoad, 0.3, 4, -1);
+	addVehicle(createAuto(), 'auto', mainRoad, 0.8, 4.8, -1);
+	addVehicle(createCar(rand), 'car', mainRoad, 0.68, 5.5, 1);
+	addVehicle(createAuto(), 'auto', crossRoad, 0.2, 4.2, -1);
+	addVehicle(createCar(rand), 'car', crossRoad, 0.45, 5, 1);
 	for (let i = 0; i < 3; i++)
-		addVehicle(createScooter(rand), crossRoad, 0.1 + i * 0.33, 6 + i, i % 2 ? 1 : -1);
+		addVehicle(createScooter(rand), 'scooter', crossRoad, 0.1 + i * 0.33, 6 + i, i % 2 ? 1 : -1);
 
 	const clouds = createClouds(rand);
 	scene.add(clouds.group);
@@ -428,15 +422,6 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 
 	// --- Per-frame ------------------------------------------------------------
 	const tmp = new THREE.Vector3();
-	const updateVehicles = (dt: number) => {
-		for (const v of vehicles) {
-			v.u += (v.direction * v.speed * dt) / v.road.length;
-			// India drives on the left.
-			const f = v.road.frameAt(v.u, -v.direction * v.lane);
-			placeOnSurface(v.object, f.up, f.forward.multiplyScalar(v.direction), ROAD_HEIGHT);
-		}
-	};
-
 	const updateNpcs = (elapsed: number) => {
 		for (const n of npcs) {
 			// Turn to face the player when they come close.
@@ -468,9 +453,10 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		npcObjects: npcs.map((n) => n.character.group),
 		setAnimationLoop: (callback) => renderer.setAnimationLoop(callback),
 		update(dt, elapsed, input) {
-			player.update(dt, input);
+			// Traffic reacts to where the player is, then the player can't walk through vehicles.
+			traffic.update(dt, player.up);
+			player.update(dt, input, traffic.colliders);
 			player.updateCamera(camera, dt);
-			updateVehicles(dt);
 			updateNpcs(elapsed);
 			clouds.update(dt);
 			updateSun();
