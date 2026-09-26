@@ -139,19 +139,24 @@ export class PlayerController {
 	 * ends up inside a house. Samples the sight line against building footprints + heights.
 	 */
 	/** Fraction (0–1] of the sight line from `target` to `eye` that is clear of buildings. */
-	private clearFraction(target: THREE.Vector3, eye: THREE.Vector3): number {
+	private clearFraction(target: THREE.Vector3, eye: THREE.Vector3, skipNear = 0): number {
 		const tall = (this.tallColliders ??= this.colliders.filter((c) => c.height));
 		const ray = eye.clone().sub(target);
+		const length = ray.length();
 		const steps = 14;
 		const p = new THREE.Vector3();
 		for (let s = 1; s <= steps; s++) {
 			const t = s / steps;
+			if (t < skipNear) continue;
 			p.copy(target).addScaledVector(ray, t);
 			const altitude = p.length() - PLANET_RADIUS;
 			p.normalize();
+			// A widening cone rather than a thin ray: walls that would fill the frame near the
+			// camera count as blocking too (e.g. looking down a narrow alley between houses).
+			const margin = 0.4 + 0.12 * t * length;
 			for (const c of tall) {
 				if (altitude > c.height! + 0.6) continue;
-				if (p.dot(c.dir) < Math.cos((c.radius + 0.5) / PLANET_RADIUS)) continue;
+				if (p.dot(c.dir) < Math.cos((c.radius + margin) / PLANET_RADIUS)) continue;
 				return (s - 1) / steps;
 			}
 		}
@@ -164,9 +169,14 @@ export class PlayerController {
 	 */
 	private avoidBuildings(): { eye: THREE.Vector3; target: THREE.Vector3; adjusted: boolean } {
 		let best: { eye: THREE.Vector3; target: THREE.Vector3; clear: number } | null = null;
-		for (const boost of [0, 0.25, 0.5, 0.8]) {
-			const pose = this.followPose(Math.min(this.pitch + boost, 1.45));
-			const clear = this.clearFraction(pose.target, pose.eye);
+		const boosts = [0, 0.25, 0.5, 0.8];
+		for (const boost of boosts) {
+			const pitch = Math.min(this.pitch + boost, 1.45);
+			const pose = this.followPose(pitch);
+			// Looking (nearly) straight down, walls right beside the player are parallel to the
+			// sight line and don't hide them — only check the upper part of the line.
+			const topDown = boost === boosts[boosts.length - 1];
+			const clear = this.clearFraction(pose.target, pose.eye, topDown ? 0.4 : 0);
 			if (clear >= 1) return { ...pose, adjusted: boost > 0 };
 			if (!best || clear > best.clear) best = { ...pose, clear };
 		}

@@ -93,8 +93,9 @@ interface Npc {
 	phase: number;
 }
 
-/** Height of a building model (measured before it's placed, while at the origin). */
+/** Height of a building model. Call before placing it (while it still sits at the origin). */
 function buildingHeight(b: Building): number {
+	b.group.updateMatrixWorld(true);
 	return new THREE.Box3().setFromObject(b.group).max.y;
 }
 
@@ -171,8 +172,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		const f = road.frameAt(u, side * offset);
 		const facing = f.right.clone().multiplyScalar(-side);
 		if (!layout.boxIsFree(f.up, facing, b.width, b.depth, FOOTPATH_WIDTH)) return false;
+		const height = buildingHeight(b); // measure before it's moved onto the planet
 		addStatic(b.group, f.up, facing);
-		layout.reserveBox(f.up, facing, b.width, b.depth, buildingHeight(b));
+		layout.reserveBox(f.up, facing, b.width, b.depth, height);
 		return true;
 	};
 
@@ -437,8 +439,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		facing: THREE.Vector3
 	): boolean => {
 		if (!layout.boxIsFree(dir, facing, b.width, b.depth, FOOTPATH_WIDTH)) return false;
+		const height = buildingHeight(b); // measure before it's moved onto the planet
 		addStatic(b.group, dir, facing);
-		layout.reserveBox(dir, facing, b.width, b.depth, buildingHeight(b));
+		layout.reserveBox(dir, facing, b.width, b.depth, height);
 		return true;
 	};
 

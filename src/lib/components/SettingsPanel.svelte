@@ -1,9 +1,21 @@
 <script lang="ts">
+	import { TRACK_NAMES, type Track } from '$lib/audio/music';
+
 	let {
 		music,
+		track,
 		onmusic,
+		ontrack,
 		onclose
-	}: { music: boolean; onmusic: (on: boolean) => void; onclose: () => void } = $props();
+	}: {
+		music: boolean;
+		track: Track;
+		onmusic: (on: boolean) => void;
+		ontrack: (track: Track) => void;
+		onclose: () => void;
+	} = $props();
+
+	const tracks = Object.keys(TRACK_NAMES) as Track[];
 </script>
 
 <div
@@ -20,6 +32,17 @@
 			<div class="toggle" role="radiogroup" aria-label="Music">
 				<button class:on={music} aria-pressed={music} onclick={() => onmusic(true)}>On</button>
 				<button class:on={!music} aria-pressed={!music} onclick={() => onmusic(false)}>Off</button>
+			</div>
+		</div>
+
+		<div class="row" class:dim={!music}>
+			<span>Track</span>
+			<div class="toggle" role="radiogroup" aria-label="Track">
+				{#each tracks as t (t)}
+					<button class:on={track === t} aria-pressed={track === t} onclick={() => ontrack(t)}>
+						{TRACK_NAMES[t]}
+					</button>
+				{/each}
 			</div>
 		</div>
 
@@ -57,6 +80,12 @@
 		justify-content: space-between;
 		font-weight: 600;
 		font-size: 1.1rem;
+	}
+	.row + .row {
+		margin-top: 0.9rem;
+	}
+	.row.dim {
+		opacity: 0.5;
 	}
 	.toggle {
 		display: flex;

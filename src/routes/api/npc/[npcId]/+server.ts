@@ -1,15 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
 import { MAX_MESSAGE_LENGTH, npcConfig } from '$lib/npcConfig';
+import { askGroq } from '$lib/server/groq';
 import type { RequestHandler } from './$types';
-
-// NOTE: API access requires an Anakin Pro-tier account.
-// Verify the endpoint and version header against Anakin's current API docs.
-const ANAKIN_API_BASE = 'https://api.anakin.ai/v1';
-const ANAKIN_API_VERSION = '2024-05-06';
-const TIMEOUT_MS = 20_000;
-
-const UPSTREAM_ERROR = 'The character could not respond. Please try again.';
 
 export const POST: RequestHandler = async ({ params, request }) => {
 	const npc = Object.hasOwn(npcConfig, params.npcId) ? npcConfig[params.npcId] : undefined;
@@ -26,38 +18,21 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		);
 	}
 
-	if (!env.ANAKIN_API_KEY) {
-		console.error('ANAKIN_API_KEY is not set');
-		return json({ error: UPSTREAM_ERROR }, { status: 502 });
-	}
-
 	try {
-		const res = await fetch(`${ANAKIN_API_BASE}/chatbots/${npc.appId}/messages`, {
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${env.ANAKIN_API_KEY}`,
-				'Content-Type': 'application/json',
-				'X-Anakin-Api-Version': ANAKIN_API_VERSION
-			},
-			body: JSON.stringify({ content: message.trim(), stream: false }),
-			signal: AbortSignal.timeout(TIMEOUT_MS)
-		});
+		const reply = await askGroq(
+			[
+				{ role: 'system', content: npc.systemPrompt },
+				{ role: 'user', content: message.trim() }
+			],
+			{ maxTokens: 120, temperature: 0.7 }
+		);
 
-		if (!res.ok) {
-			// Log upstream details server-side only; never relay them to the client.
-			console.error(`Anakin ${res.status} for ${params.npcId}:`, await res.text());
-			return json({ error: UPSTREAM_ERROR }, { status: 502 });
-		}
-
-		const data = (await res.json()) as { content?: unknown };
-		if (typeof data.content !== 'string' || !data.content) {
-			console.error(`Anakin returned no content for ${params.npcId}`);
-			return json({ error: UPSTREAM_ERROR }, { status: 502 });
-		}
-
-		return json({ reply: data.content });
+		return json({ reply });
 	} catch (e) {
-		console.error(`Anakin request failed for ${params.npcId}:`, e);
-		return json({ error: UPSTREAM_ERROR }, { status: 502 });
+		console.error(`Groq error for NPC ${params.npcId}:`, e);
+		return json(
+			{ error: 'The character is lost in thought right now. Please try again.' },
+			{ status: 502 }
+		);
 	}
 };

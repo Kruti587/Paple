@@ -41,13 +41,17 @@
 		return () => clearInterval(timer);
 	});
 
-	function submit(e: SubmitEvent) {
+	let loading = $state(false);
+
+	async function submit(e: SubmitEvent) {
 		e.preventDefault();
-		if (!booted || granted) return;
+		if (!booted || granted || loading) return;
 		const code = value.trim();
 		if (!code) return;
 		lines = [...lines, { text: `> ${code}`, kind: 'input' }];
 		value = '';
+
+		// If it's the valid 4-digit access code
 		if (onsubmit(code)) {
 			granted = true;
 			lines = [
@@ -56,12 +60,51 @@
 				{ text: `Welcome, Anakin. The ${COMPANY_NAME} mainframe is yours.`, kind: 'ok' }
 			];
 			setTimeout(ondone, 2600);
-		} else {
+			return;
+		}
+
+		// If it looks like a 4-digit numeric attempt that was wrong
+		if (/^\d{4}$/.test(code)) {
 			attempts++;
 			lines = [
 				...lines,
-				{ text: `ACCESS DENIED ✖  (attempt ${attempts}) — check the post-it`, kind: 'error' }
+				{ text: `ACCESS DENIED ✖  (attempt ${attempts}) — check the post-it, or type 'hint'`, kind: 'error' }
 			];
+			return;
+		}
+
+		// Otherwise, query the Groq AI mainframe assistant!
+		loading = true;
+		lines = [...lines, { text: `[SYSTEM] Querying Groq neural security link...`, kind: 'ok' }];
+
+		try {
+			const res = await fetch('/api/quest/terminal', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ command: code })
+			});
+
+			if (res.ok) {
+				const data = (await res.json()) as { reply?: string };
+				const replyLines = (data.reply || '').split('\n').filter(Boolean);
+				lines = [
+					...lines,
+					...replyLines.map((t) => ({ text: t, kind: 'ok' as const }))
+				];
+			} else {
+				lines = [
+					...lines,
+					{ text: `SYS_ERR: Connection timed out. Enter 4-digit PIN.`, kind: 'error' }
+				];
+			}
+		} catch {
+			lines = [
+				...lines,
+				{ text: `SYS_ERR: Security subsystem unreachable.`, kind: 'error' }
+			];
+		} finally {
+			loading = false;
+			queueMicrotask(() => input?.focus());
 		}
 	}
 
@@ -76,7 +119,7 @@
 	<div class="terminal" role="dialog" aria-label="Command prompt">
 		<div class="titlebar">
 			<span class="dots"><i></i><i></i><i></i></span>
-			<span>C:\{COMPANY_NAME}\mainframe&gt; cmd.exe</span>
+			<span>C:\{COMPANY_NAME}\mainframe&gt; cmd.exe (AI Link Active)</span>
 			{#if !granted}
 				<button class="close" onclick={onclose} aria-label="Close">×</button>
 			{/if}
@@ -91,14 +134,15 @@
 					<input
 						bind:this={input}
 						bind:value
-						maxlength="8"
-						inputmode="numeric"
+						maxlength="64"
 						autocomplete="off"
 						spellcheck="false"
-						aria-label="Access code"
+						disabled={loading}
+						placeholder={loading ? 'Processing...' : ''}
+						aria-label="Access code or terminal command"
 					/>
 				</form>
-				<div class="help">Enter to submit · Esc to close</div>
+				<div class="help">Enter 4-digit code or type 'help' / 'hint' for AI mainframe guidance · Esc to close</div>
 			{/if}
 		</div>
 	</div>

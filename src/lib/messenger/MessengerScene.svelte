@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
-	import { loadMusicPref, Music, saveMusicPref } from '$lib/audio/music';
+	import {
+		loadMusicPref,
+		loadTrackPref,
+		Music,
+		saveMusicPref,
+		saveTrackPref,
+		type Track
+	} from '$lib/audio/music';
 	import NpcDialogue from '$lib/components/NpcDialogue.svelte';
 	import QuestHud from '$lib/components/QuestHud.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
@@ -25,7 +32,10 @@
 	let ready = $state(false);
 	let settingsOpen = $state(false);
 	let musicOn = $state(loadMusicPref());
+	const initialTrack = loadTrackPref();
+	let track = $state<Track>(initialTrack);
 	const music = new Music();
+	void music.setTrack(initialTrack);
 
 	// --- HUD ---
 	let clock = $state('');
@@ -36,7 +46,6 @@
 	let showPostIt = $state(false);
 	let banner = $state<'caught' | 'complete' | null>(null);
 	let terminalOpen = $state(false);
-	let isMuted = $state(true); // Default muted to allow autoplay/interaction policy
 
 	// --- NPC dialogue ---
 	let activeNpcId = $state<string | null>(null);
@@ -113,6 +122,13 @@
 		void music.setEnabled(on);
 	}
 
+	function setTrack(t: Track) {
+		track = t;
+		saveTrackPref(t);
+		void music.setTrack(t);
+		if (!musicOn) setMusic(true); // picking a track implies you want to hear it
+	}
+
 	onMount(() => {
 		let disposed = false;
 		let cleanup = () => {};
@@ -127,7 +143,6 @@
 			const world = createWorld(canvas, Object.keys(npcConfig));
 			const g = new Game(world, onGameEvent);
 			game = g;
-			Object.assign(window, { __game: g }); // TEMP-DEBUG
 			const keyboard = createKeyboard();
 
 			// ?t=18.2 starts the day at 6:12 PM (handy for seeing the sunset straight away).
@@ -223,17 +238,11 @@
 </script>
 
 <div class="root">
-	<audio src="/lofi.mp3" bind:muted={isMuted} loop autoplay></audio>
 	<canvas bind:this={canvas}></canvas>
 
 	{#if phase === 'title'}
 		<TitleScreen {ready} onplay={play} onsettings={() => (settingsOpen = true)} />
 	{:else}
-		<div class="audio-controls">
-			<button onclick={() => isMuted = !isMuted}>
-				{isMuted ? '🔇 Unmute Music' : '🔊 Mute Music'}
-			</button>
-		</div>
 		<div class="hint">
 			<strong>Namma Planet</strong>
 			<span>WASD to walk · Shift to run · drag to look · scroll to zoom</span>
@@ -243,6 +252,12 @@
 				<strong>{clock}</strong>
 				<span><kbd>[</kbd> <kbd>]</kbd> change time</span>
 			</div>
+			<button
+				class="gear"
+				onclick={() => setMusic(!musicOn)}
+				aria-label={musicOn ? 'Mute music' : 'Unmute music'}
+				title={musicOn ? 'Mute music' : 'Unmute music'}>{musicOn ? '🔊' : '🔇'}</button
+			>
 			<button class="gear" onclick={() => (settingsOpen = true)} aria-label="Settings">⚙</button>
 		</div>
 
@@ -283,7 +298,13 @@
 	{/if}
 
 	{#if settingsOpen}
-		<SettingsPanel music={musicOn} onmusic={setMusic} onclose={() => (settingsOpen = false)} />
+		<SettingsPanel
+			music={musicOn}
+			{track}
+			onmusic={setMusic}
+			ontrack={setTrack}
+			onclose={() => (settingsOpen = false)}
+		/>
 	{/if}
 </div>
 
@@ -300,31 +321,9 @@
 		display: block;
 		touch-action: none;
 	}
-	.audio-controls {
-		position: absolute;
-		top: 1rem;
-		left: 1rem;
-		z-index: 10;
-	}
-	.audio-controls button {
-		background: rgb(255 255 255 / 0.75);
-		color: #363a3c;
-		border: none;
-		padding: 0.5rem 0.8rem;
-		border-radius: 0.6rem;
-		font-family: inherit;
-		font-size: 0.9rem;
-		font-weight: bold;
-		cursor: pointer;
-		backdrop-filter: blur(4px);
-		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-	}
-	.audio-controls button:hover {
-		background: rgb(255 255 255 / 0.95);
-	}
 	.hint {
 		position: absolute;
-		top: 3.5rem;
+		top: 1rem;
 		left: 1rem;
 		display: flex;
 		flex-direction: column;

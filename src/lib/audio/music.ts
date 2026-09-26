@@ -1,7 +1,15 @@
-// Procedural background music (Web Audio, no audio files): a tanpura drone, a plucked
-// sitar-like melody wandering over the Bhupali pentatonic scale, and soft tabla-style beats.
+// Background music with two tracks:
+//  - 'lofi': the team's lofi loop (static/lofi.mp3), streamed only once music is first turned on.
+//  - 'generated' ("Namma Beats"): procedural Web Audio — a tanpura drone, a plucked sitar-like
+//    melody wandering over the Bhupali pentatonic scale, and soft tabla-style beats.
+
+export type Track = 'lofi' | 'generated';
+export const TRACK_NAMES: Record<Track, string> = { lofi: 'Lofi', generated: 'Namma Beats' };
 
 const STORAGE_KEY = 'paple.music';
+const TRACK_KEY = 'paple.track';
+const LOFI_URL = '/lofi.mp3';
+const LOFI_VOLUME = 0.6;
 const BPM = 84;
 const BEAT = 60 / BPM;
 const SA = 138.59; // C#3 — a common tanpura pitch
@@ -20,6 +28,15 @@ export function saveMusicPref(on: boolean) {
 	if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, on ? 'on' : 'off');
 }
 
+export function loadTrackPref(): Track {
+	if (typeof localStorage === 'undefined') return 'lofi';
+	return localStorage.getItem(TRACK_KEY) === 'generated' ? 'generated' : 'lofi';
+}
+
+export function saveTrackPref(track: Track) {
+	if (typeof localStorage !== 'undefined') localStorage.setItem(TRACK_KEY, track);
+}
+
 export class Music {
 	private ctx: AudioContext | null = null;
 	private master!: GainNode;
@@ -29,10 +46,52 @@ export class Music {
 	private beat = 0;
 	private melodyIndex = 4;
 	private enabled = false;
+	private track: Track = 'lofi';
+	private lofi: HTMLAudioElement | null = null;
+	private lofiFade: ReturnType<typeof setInterval> | null = null;
 
 	/** Must be called from a user gesture (browsers block audio until then). */
 	async setEnabled(on: boolean) {
 		this.enabled = on;
+		if (this.track === 'lofi') await this.setLofi(on);
+		else await this.setGenerated(on);
+	}
+
+	/** Switch tracks, cross-fading if music is playing. */
+	async setTrack(track: Track) {
+		if (track === this.track) return;
+		const playing = this.enabled;
+		if (playing) {
+			if (this.track === 'lofi') await this.setLofi(false);
+			else await this.setGenerated(false);
+		}
+		this.track = track;
+		if (playing) await this.setEnabled(true);
+	}
+
+	private async setLofi(on: boolean) {
+		if (on && !this.lofi) {
+			this.lofi = new Audio(LOFI_URL);
+			this.lofi.loop = true;
+			this.lofi.volume = 0;
+		}
+		const el = this.lofi;
+		if (!el) return;
+		if (this.lofiFade) clearInterval(this.lofiFade);
+		if (on) await el.play().catch(() => undefined);
+		const target = on ? LOFI_VOLUME : 0;
+		this.lofiFade = setInterval(() => {
+			const next = el.volume + Math.sign(target - el.volume) * 0.04;
+			el.volume = Math.min(1, Math.max(0, Math.abs(target - next) < 0.04 ? target : next));
+			if (el.volume === target) {
+				clearInterval(this.lofiFade!);
+				this.lofiFade = null;
+				if (!on) el.pause();
+			}
+		}, 40);
+	}
+
+	private async setGenerated(on: boolean) {
 		if (on) {
 			this.ensureContext();
 			await this.ctx!.resume();
@@ -44,12 +103,17 @@ export class Music {
 			this.master.gain.setTargetAtTime(0, this.ctx.currentTime, 0.25);
 			const ctx = this.ctx;
 			setTimeout(() => {
-				if (!this.enabled && ctx.state === 'running') void ctx.suspend();
+				// Idle the audio engine when music is off or we've switched to the lofi track.
+				if ((!this.enabled || this.track !== 'generated') && ctx.state === 'running')
+					void ctx.suspend();
 			}, 1200);
 		}
 	}
 
 	dispose() {
+		if (this.lofiFade) clearInterval(this.lofiFade);
+		this.lofi?.pause();
+		this.lofi = null;
 		if (this.timer) clearInterval(this.timer);
 		this.timer = null;
 		void this.ctx?.close();
