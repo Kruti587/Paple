@@ -36,6 +36,7 @@
 	let showPostIt = $state(false);
 	let banner = $state<'caught' | 'complete' | null>(null);
 	let terminalOpen = $state(false);
+	let isMuted = $state(true); // Default muted to allow autoplay/interaction policy
 
 	// --- NPC dialogue ---
 	let activeNpcId = $state<string | null>(null);
@@ -222,11 +223,17 @@
 </script>
 
 <div class="root">
+	<audio src="/lofi.mp3" bind:muted={isMuted} loop autoplay></audio>
 	<canvas bind:this={canvas}></canvas>
 
 	{#if phase === 'title'}
 		<TitleScreen {ready} onplay={play} onsettings={() => (settingsOpen = true)} />
 	{:else}
+		<div class="audio-controls">
+			<button onclick={() => isMuted = !isMuted}>
+				{isMuted ? '🔇 Unmute Music' : '🔊 Mute Music'}
+			</button>
+		</div>
 		<div class="hint">
 			<strong>Namma Planet</strong>
 			<span>WASD to walk · Shift to run · drag to look · scroll to zoom</span>
@@ -293,9 +300,31 @@
 		display: block;
 		touch-action: none;
 	}
-	.hint {
+	.audio-controls {
 		position: absolute;
 		top: 1rem;
+		left: 1rem;
+		z-index: 10;
+	}
+	.audio-controls button {
+		background: rgb(255 255 255 / 0.75);
+		color: #363a3c;
+		border: none;
+		padding: 0.5rem 0.8rem;
+		border-radius: 0.6rem;
+		font-family: inherit;
+		font-size: 0.9rem;
+		font-weight: bold;
+		cursor: pointer;
+		backdrop-filter: blur(4px);
+		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	}
+	.audio-controls button:hover {
+		background: rgb(255 255 255 / 0.95);
+	}
+	.hint {
+		position: absolute;
+		top: 3.5rem;
 		left: 1rem;
 		display: flex;
 		flex-direction: column;
