@@ -5,6 +5,9 @@ import { env } from '$env/dynamic/private';
 // Docs: https://anakin.io/docs/api-reference/search/search
 const ANAKIN_SEARCH_URL = 'https://api.anakin.io/v1/search';
 const TIMEOUT_MS = 8_000;
+const MAX_SNIPPET_CHARS = 500;
+
+const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 export interface WebResult {
 	title: string;
@@ -40,7 +43,12 @@ export async function searchWeb(prompt: string, limit = 3): Promise<WebResult[]>
 		};
 		return (data.results ?? [])
 			.filter((r) => r.url && (r.title || r.snippet))
-			.map((r) => ({ title: r.title ?? r.url!, url: r.url!, snippet: r.snippet ?? '' }));
+			.map((r) => ({
+				title: clean(r.title ?? '') || r.url!,
+				url: r.url!,
+				// Snippets can be whole-page dumps; keep the LLM prompt small.
+				snippet: clean(r.snippet ?? '').slice(0, MAX_SNIPPET_CHARS)
+			}));
 	} catch (err) {
 		console.warn('Anakin search failed:', err);
 		return [];
