@@ -13,6 +13,7 @@
 	let message = $state('');
 	let lastQuestion = $state('');
 	let reply = $state('');
+	let sources = $state<{ title: string; url: string }[]>([]);
 	let errorText = $state('');
 	let loading = $state(false);
 	let controller: AbortController | null = null;
@@ -23,6 +24,7 @@
 		message = '';
 		lastQuestion = '';
 		reply = '';
+		sources = [];
 		errorText = '';
 		loading = false;
 	}
@@ -46,6 +48,7 @@
 		loading = true;
 		errorText = '';
 		reply = '';
+		sources = [];
 		lastQuestion = text;
 		message = '';
 
@@ -61,7 +64,12 @@
 			} else if (!res.ok) {
 				errorText = 'Something went wrong. Please try again.';
 			} else {
-				reply = (await res.json()).reply;
+				const data = (await res.json()) as {
+					reply: string;
+					sources?: { title: string; url: string }[];
+				};
+				reply = data.reply;
+				sources = data.sources ?? [];
 			}
 		} catch (err) {
 			if ((err as Error).name === 'AbortError') return;
@@ -109,12 +117,21 @@
 			{#if loading}
 				<div class="loading-state">
 					<div class="spinner" aria-label="Loading"></div>
-					<span>Thinking via Anakin...</span>
+					<span>Gathering live intel via Anakin...</span>
 				</div>
 			{:else if errorText}
 				<p class="error">{errorText}</p>
 			{:else if reply}
 				<p class="npc">{reply}</p>
+				{#if sources.length}
+					<div class="sources">
+						<span>🔎 Live intel via Anakin</span>
+						{#each sources as source (source.url)}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external source link -->
+							<a href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a>
+						{/each}
+					</div>
+				{/if}
 			{/if}
 		</div>
 
@@ -181,6 +198,19 @@
 		font-size: 0.85rem;
 		opacity: 0.7;
 		font-weight: normal;
+	}
+	.sources {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		font-size: 0.75rem;
+		opacity: 0.75;
+	}
+	.sources a {
+		color: #7fc4c6;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.suggestions {
 		display: flex;

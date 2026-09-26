@@ -73,9 +73,17 @@
 			return;
 		}
 
-		// Otherwise, query the Anakin AI mainframe assistant!
+		// Otherwise, hand the command to the mainframe (SCAN pulls live web data via Anakin).
 		loading = true;
-		lines = [...lines, { text: `[SYSTEM] Querying Anakin neural security link...`, kind: 'ok' }];
+		lines = [
+			...lines,
+			{
+				text: /^scan\b/i.test(code)
+					? `[ANAKIN] Scanning the live web...`
+					: `[SYSTEM] Processing command...`,
+				kind: 'ok'
+			}
+		];
 
 		try {
 			const res = await fetch('/api/quest/terminal', {
