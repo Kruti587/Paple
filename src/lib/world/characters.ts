@@ -280,7 +280,7 @@ const NPC_STYLES: Record<string, Style> = {
 			sphere(g, 0.18, '#fcfcfc', 0.15, 1.65, 0.1, 8);
 			sphere(g, 0.18, '#fcfcfc', -0.15, 1.65, 0.1, 8);
 			sphere(g, 0.18, '#fcfcfc', 0, 1.65, -0.15, 8);
-			
+
 			// Thick Moustache
 			const stacheL = cylinder(g, 0.02, 0.01, 0.08, '#3d2616', -0.04, 1.27, 0.2, 6);
 			stacheL.rotation.z = 1.2;
@@ -333,7 +333,7 @@ const NPC_STYLES: Record<string, Style> = {
 
 			// Unibrow
 			box(g, 0.18, 0.025, 0.03, '#2a1a10', 0, 1.36, 0.2);
-			
+
 			// Big bushy beard
 			sphere(g, 0.18, '#2a1a10', 0, 1.2, 0.15, 8).scale.set(1.2, 1, 0.8);
 			sphere(g, 0.12, '#2a1a10', -0.12, 1.22, 0.12, 6);
@@ -341,14 +341,14 @@ const NPC_STYLES: Record<string, Style> = {
 
 			// Animal pelt details (one-shoulder strap)
 			// Bare right shoulder/chest
-			box(g, 0.18, 0.2, 0.05, '#d49b6c', 0.12, 0.95, 0.2); 
+			box(g, 0.18, 0.2, 0.05, '#d49b6c', 0.12, 0.95, 0.2);
 			// Diagonal strap over left shoulder
 			const strap = box(g, 0.1, 0.35, 0.05, '#4a2e16', -0.08, 0.95, 0.21);
 			strap.rotation.z = -0.4;
 			// Jagged pelt trim at the bottom
-			for(let i=0; i<5; i++) {
-				const trim = box(g, 0.08, 0.1, 0.04, '#a37048', -0.16 + i*0.08, 0.5, 0.2);
-				trim.rotation.z = (i%2 === 0) ? 0.2 : -0.2;
+			for (let i = 0; i < 5; i++) {
+				const trim = box(g, 0.08, 0.1, 0.04, '#a37048', -0.16 + i * 0.08, 0.5, 0.2);
+				trim.rotation.z = i % 2 === 0 ? 0.2 : -0.2;
 			}
 			// Belt (rope/vine)
 			cylinder(g, 0.21, 0.21, 0.04, '#7a964f', 0, 0.55, 0, 10);
@@ -360,7 +360,7 @@ const NPC_STYLES: Record<string, Style> = {
 			const head = cylinder(g, 0.08, 0.06, 0.25, '#4a321e', 0.35, 0.8, 0.21, 6);
 			head.rotation.x = 0.4;
 			// Spikes on the club
-			for(let i=0; i<4; i++) {
+			for (let i = 0; i < 4; i++) {
 				const spike = cylinder(g, 0.01, 0.03, 0.1, '#a69f91', 0.35, 0.8, 0.21, 4);
 				spike.rotation.x = 0.4;
 				spike.rotation.z = (Math.PI / 2) * i;
@@ -425,7 +425,11 @@ const NPC_STYLES: Record<string, Style> = {
 			bulb.rotation.x = Math.PI / 2;
 			const light = sphere(g, 0.03, '#ffffff', 0.3, 0.55, 0.28, 6); // Lens
 			// Glow aura for light
-			const auraMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.3 });
+			const auraMat = new THREE.MeshBasicMaterial({
+				color: '#ffffff',
+				transparent: true,
+				opacity: 0.3
+			});
 			const aura = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), auraMat);
 			aura.position.set(0.3, 0.55, 0.3);
 			g.add(aura);
