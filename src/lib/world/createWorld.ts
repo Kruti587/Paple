@@ -511,8 +511,17 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	addVehicle(createCar(rand), 'car', mainRoad, 0.68, 5.5, 1);
 	addVehicle(createAuto(), 'auto', crossRoad, 0.2, 4.2, -1);
 	addVehicle(createCar(rand), 'car', crossRoad, 0.45, 5, 1);
+	for (let i = 0; i < 4; i++)
+		addVehicle(
+			createScooter(rand),
+			'scooter',
+			crossRoad,
+			0.08 + i * 0.23,
+			5.5 + i * 0.8,
+			i % 2 ? 1 : -1
+		);
 	for (let i = 0; i < 3; i++)
-		addVehicle(createScooter(rand), 'scooter', crossRoad, 0.1 + i * 0.33, 6 + i, i % 2 ? 1 : -1);
+		addVehicle(createScooter(rand), 'scooter', mainRoad, 0.15 + i * 0.28, 6 + i, i % 2 ? 1 : -1);
 
 	const clouds = createClouds(rand);
 	scene.add(clouds.group);
