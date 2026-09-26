@@ -21,7 +21,7 @@ function wheel(g: THREE.Object3D, r: number, w: number, x: number, z: number) {
 function rider(g: THREE.Object3D, shirt: string, y: number, z: number, helmet?: string) {
 	// Body
 	box(g, 0.34, 0.45, 0.22, shirt, 0, y + 0.22, z);
-	
+
 	// Left arm (reaching forward)
 	const armL = cylinder(g, 0.045, 0.04, 0.4, shirt, -0.2, y + 0.3, z + 0.15, 6);
 	armL.rotation.x = Math.PI / 2 + 0.15; // Point forward, slightly down
@@ -33,7 +33,7 @@ function rider(g: THREE.Object3D, shirt: string, y: number, z: number, helmet?: 
 
 	// Head
 	sphere(g, 0.13, PALETTE.skin, 0, y + 0.58, z, 8);
-	
+
 	// Helmet or Hair
 	if (helmet) sphere(g, 0.15, helmet, 0, y + 0.62, z - 0.01, 8);
 	else sphere(g, 0.135, '#2b2320', 0, y + 0.63, z - 0.02, 8);

@@ -204,6 +204,24 @@ export class OutlineRenderer {
 		this.material.uniforms.uThickness.value = 1.6 * dpr;
 	}
 
+	private dayTransition = 0;
+	/** Extra fade-to-dark used for scene changes (entering/leaving buildings, stairs). */
+	fade = 0;
+
+	/** Indoor backdrop: a warm dark void behind the cutaway floor, no sun/stars/grade. */
+	setIndoor(up: THREE.Vector3) {
+		const u = this.material.uniforms;
+		u.uSkyTop.value.set('#1d1b2e');
+		u.uSkyMid.value.set('#2a2740');
+		u.uSkyBottom.value.set('#3a3552');
+		u.uGlowStrength.value = 0;
+		u.uNight.value = 0;
+		u.uGrade.value.setRGB(1, 1, 1);
+		u.uOutline.value.copy(OUTLINE_DAY);
+		u.uUp.value.copy(up);
+		this.dayTransition = 0;
+	}
+
 	/** Per-frame sky/lighting inputs from the day cycle. */
 	setSky(l: Lighting, up: THREE.Vector3, sunDir: THREE.Vector3) {
 		const u = this.material.uniforms;
@@ -214,17 +232,25 @@ export class OutlineRenderer {
 		u.uGlowStrength.value = l.glowStrength;
 		u.uNight.value = l.night;
 		u.uGrade.value.copy(l.grade);
-		u.uTransition.value = l.transition;
+		this.dayTransition = l.transition;
 		// Ink goes deep navy at night so lines stay darker than the moonlit surfaces.
 		u.uOutline.value.copy(OUTLINE_DAY).lerp(OUTLINE_NIGHT, l.night);
 		u.uUp.value.copy(up);
 		u.uSunDir.value.copy(sunDir);
 	}
 
-	render(time: number) {
-		const { renderer, scene, camera } = this;
+	/** Renders `scene` through the outline pipeline (defaults to the world scene/camera). */
+	render(
+		time: number,
+		scene: THREE.Scene = this.scene,
+		camera: THREE.PerspectiveCamera = this.camera
+	) {
+		const { renderer } = this;
 		const u = this.material.uniforms;
 		u.uTime.value = time;
+		u.uTransition.value = Math.max(this.dayTransition, this.fade);
+		u.uNear.value = camera.near;
+		u.uFar.value = camera.far;
 		u.uInvProj.value.copy(camera.projectionMatrixInverse);
 		u.uCamWorld.value.copy(camera.matrixWorld);
 

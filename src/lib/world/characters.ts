@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PALETTE } from './constants';
+import { textPanel, COMPANY_NAME } from './props/signs';
 import { box, cylinder, sphere } from './props/util';
 
 export interface Character {
@@ -271,7 +272,7 @@ const NPC_STYLES: Record<string, Style> = {
 		pants: '#111111', // Black/houndstooth pants
 		skin: '#f2cdab',
 		hair: '#3d2616', // Hidden under hat, but has a moustache
-		decorate: (g, extra) => {
+		decorate: (g) => {
 			// Detailed Chef Hat (Toque)
 			// Base band
 			cylinder(g, 0.19, 0.19, 0.15, '#f8f8f8', 0, 1.48, 0, 12);
@@ -423,7 +424,7 @@ const NPC_STYLES: Record<string, Style> = {
 			cylinder(g, 0.02, 0.02, 0.15, '#222222', 0.3, 0.55, 0.15, 8); // Handle
 			const bulb = cylinder(g, 0.04, 0.02, 0.08, '#dddddd', 0.3, 0.55, 0.25, 8); // Head
 			bulb.rotation.x = Math.PI / 2;
-			const light = sphere(g, 0.03, '#ffffff', 0.3, 0.55, 0.28, 6); // Lens
+			sphere(g, 0.03, '#ffffff', 0.3, 0.55, 0.28, 6); // Lens
 			// Glow aura for light
 			const auraMat = new THREE.MeshBasicMaterial({
 				color: '#ffffff',
@@ -499,6 +500,25 @@ const NPC_STYLES: Record<string, Style> = {
 
 export function createNpcCharacter(npcId: string): Character {
 	return createFigure(NPC_STYLES[npcId] ?? { shirt: '#cccccc', pants: '#555555' });
+}
+
+/** Staffer in a company T-shirt (with the logo on the chest) and an ID lanyard — the quest's chaser. */
+export function createStaffer(): Character {
+	return createFigure({
+		shirt: '#6d4bd8',
+		pants: '#2f3440',
+		skin: '#b97a55',
+		hair: '#1d1714',
+		decorate: (g) => {
+			const logo = textPanel(COMPANY_NAME, 0.36, 0.1, { color: '#ffffff', resolution: 400 });
+			logo.position.set(0, 0.86, 0.255);
+			g.add(logo);
+			// Lanyard + ID card
+			box(g, 0.02, 0.28, 0.02, '#f5d547', -0.08, 0.9, 0.24).rotation.z = -0.25;
+			box(g, 0.02, 0.28, 0.02, '#f5d547', 0.08, 0.9, 0.24).rotation.z = 0.25;
+			box(g, 0.1, 0.13, 0.015, '#ffffff', 0, 0.7, 0.26);
+		}
+	});
 }
 
 /** Simple walk cycle / idle sway + flowing cape animation. */

@@ -26,6 +26,7 @@ export class PlayerController {
 	private readonly eye = new THREE.Vector3();
 	private readonly camUp = new THREE.Vector3();
 	private initialised = false;
+	private tallColliders: Circle[] | undefined;
 
 	constructor(
 		readonly character: Character,
@@ -103,19 +104,91 @@ export class PlayerController {
 		this.distance = THREE.MathUtils.clamp(this.distance * (1 + delta), 5, 30);
 	}
 
-	updateCamera(camera: THREE.PerspectiveCamera, dt: number) {
+	/** Where the follow camera wants to be (without smoothing) — used to blend the intro fly-in. */
+	followPose(pitch = this.pitch): { eye: THREE.Vector3; target: THREE.Vector3; up: THREE.Vector3 } {
 		const target = this.position.clone().addScaledVector(this.up, EYE_HEIGHT);
-		const desired = target
+		const eye = target
 			.clone()
-			.addScaledVector(this.viewForward, -Math.cos(this.pitch) * this.distance)
-			.addScaledVector(this.up, Math.sin(this.pitch) * this.distance);
+			.addScaledVector(this.viewForward, -Math.cos(pitch) * this.distance)
+			.addScaledVector(this.up, Math.sin(pitch) * this.distance);
+		return { eye, target, up: this.up.clone() };
+	}
+
+	/** Snap the smoothed camera to its target next frame (after teleports / cutscenes). */
+	resetCamera() {
+		this.initialised = false;
+	}
+
+	/**
+	 * Move instantly to unit direction `to`, facing `facing`. The camera looks along `view`
+	 * (defaults to `facing`); `minPitch` raises it, e.g. to clear a tall building behind.
+	 */
+	teleport(to: THREE.Vector3, facing: THREE.Vector3, view: THREE.Vector3 = facing, minPitch = 0) {
+		this.up.copy(to).normalize();
+		this.facing.copy(facing);
+		toTangent(this.facing, this.up);
+		this.viewForward.copy(view);
+		toTangent(this.viewForward, this.up);
+		this.pitch = Math.max(this.pitch, minPitch);
+		placeOnSurface(this.character.group, this.up, this.facing);
+		this.resetCamera();
+	}
+
+	/**
+	 * Pulls `eye` in towards `target` if a building stands between them, so the camera never
+	 * ends up inside a house. Samples the sight line against building footprints + heights.
+	 */
+	/** Fraction (0–1] of the sight line from `target` to `eye` that is clear of buildings. */
+	private clearFraction(target: THREE.Vector3, eye: THREE.Vector3): number {
+		const tall = (this.tallColliders ??= this.colliders.filter((c) => c.height));
+		const ray = eye.clone().sub(target);
+		const steps = 14;
+		const p = new THREE.Vector3();
+		for (let s = 1; s <= steps; s++) {
+			const t = s / steps;
+			p.copy(target).addScaledVector(ray, t);
+			const altitude = p.length() - PLANET_RADIUS;
+			p.normalize();
+			for (const c of tall) {
+				if (altitude > c.height! + 0.6) continue;
+				if (p.dot(c.dir) < Math.cos((c.radius + 0.5) / PLANET_RADIUS)) continue;
+				return (s - 1) / steps;
+			}
+		}
+		return 1;
+	}
+
+	/**
+	 * Keeps buildings out of the way: first tilt the camera up towards top-down (clears the
+	 * houses you're pressed against), and only if that fails pull it in closer.
+	 */
+	private avoidBuildings(): { eye: THREE.Vector3; target: THREE.Vector3; adjusted: boolean } {
+		let best: { eye: THREE.Vector3; target: THREE.Vector3; clear: number } | null = null;
+		for (const boost of [0, 0.25, 0.5, 0.8]) {
+			const pose = this.followPose(Math.min(this.pitch + boost, 1.45));
+			const clear = this.clearFraction(pose.target, pose.eye);
+			if (clear >= 1) return { ...pose, adjusted: boost > 0 };
+			if (!best || clear > best.clear) best = { ...pose, clear };
+		}
+		const b = best!;
+		return {
+			target: b.target,
+			eye: b.target.clone().lerp(b.eye, Math.max(0.28, b.clear)),
+			adjusted: true
+		};
+	}
+
+	updateCamera(camera: THREE.PerspectiveCamera, dt: number) {
+		const { eye: desired, target, adjusted } = this.avoidBuildings();
+		const pulledIn = adjusted || desired.distanceTo(target) < this.eye.distanceTo(target) - 0.05;
 
 		if (!this.initialised) {
 			this.eye.copy(desired);
 			this.camUp.copy(this.up);
 			this.initialised = true;
 		}
-		const k = 1 - Math.exp(-dt * 8);
+		// Snap in quickly when something blocks the view, ease back out gently.
+		const k = 1 - Math.exp(-dt * (pulledIn ? 18 : 5));
 		this.eye.lerp(desired, k);
 		this.camUp.lerp(this.up, k).normalize();
 		camera.position.copy(this.eye);

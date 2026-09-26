@@ -19,7 +19,9 @@ import {
 	createVidhanaSoudha,
 	type Building
 } from './props/buildings';
+import { createAnakinHQ, createKiosk, createQuestMarker } from './props/anakinHQ';
 import { createClouds } from './props/clouds';
+import { disposeSignTextures } from './props/signs';
 import {
 	createBench,
 	createChaiStall,
@@ -43,10 +45,21 @@ const TALK_DISTANCE = 2.4;
 export interface World {
 	camera: THREE.PerspectiveCamera;
 	player: PlayerController;
+	scene: THREE.Scene;
+	renderer: THREE.WebGLRenderer;
+	outline: OutlineRenderer;
+	/** Key quest locations on the planet (unit directions). */
+	quest: QuestSites;
+	/** Show the floating quest beacon over a spot on the planet (null hides it). */
+	setMarker(dir: THREE.Vector3 | null): void;
+	/** 'title': slow orbit round the planet; 'intro': spinning fly-in to the player; 'follow': gameplay. */
+	setCameraMode(mode: CameraMode, introSeconds?: number): void;
+	cameraMode(): CameraMode;
 	/** Clickable NPC roots, each tagged with userData.npcId. */
 	npcObjects: THREE.Object3D[];
 	setAnimationLoop(callback: XRFrameRequestCallback | null): void;
-	update(dt: number, elapsed: number, input: MoveInput): void;
+	/** `playerActive: false` freezes the player (title, intro, indoors, terminal open). */
+	update(dt: number, elapsed: number, input: MoveInput, opts?: { playerActive?: boolean }): void;
 	/** Current in-game hour (8 = 8 AM … 20 = 8 PM). */
 	hour(): number;
 	/** Jump the clock forward/back by in-game hours (debug / impatience). */
@@ -59,12 +72,30 @@ export interface World {
 	dispose(): void;
 }
 
+export type CameraMode = 'title' | 'intro' | 'follow';
+
+export interface QuestSites {
+	/** Stand here to walk in through the ANAKIN HQ entrance. */
+	door: THREE.Vector3;
+	/** Where the player reappears when leaving the building. */
+	outside: THREE.Vector3;
+	/** Away from the entrance, tangent at `outside`. */
+	outward: THREE.Vector3;
+	/** The street terminal a few steps from the entrance. */
+	kiosk: THREE.Vector3;
+}
+
 interface Npc {
 	id: string;
 	character: Character;
 	up: THREE.Vector3;
 	facing: THREE.Vector3;
 	phase: number;
+}
+
+/** Height of a building model (measured before it's placed, while at the origin). */
+function buildingHeight(b: Building): number {
+	return new THREE.Box3().setFromObject(b.group).max.y;
 }
 
 export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World {
@@ -141,7 +172,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		const facing = f.right.clone().multiplyScalar(-side);
 		if (!layout.boxIsFree(f.up, facing, b.width, b.depth, FOOTPATH_WIDTH)) return false;
 		addStatic(b.group, f.up, facing);
-		layout.reserveBox(f.up, facing, b.width, b.depth);
+		layout.reserveBox(f.up, facing, b.width, b.depth, buildingHeight(b));
 		return true;
 	};
 
@@ -188,6 +219,61 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			layout.reserve(corner, 0.6);
 		}
 	}
+
+	// --- Quest building: ANAKIN HQ, just across the road from the start junction ---
+	const hq = createAnakinHQ();
+	let hqUp: THREE.Vector3 | null = null;
+	const hqFacing = new THREE.Vector3();
+	for (const side of [1, -1] as const) {
+		for (let k = 0; k < 60 && !hqUp; k++) {
+			if (placeBuilding(hq.building, mainRoad, jU + 0.06 + k * 0.01, side, 0.6)) {
+				hqUp = hq.building.group.position.clone().normalize();
+				hqFacing.set(0, 0, 1).applyQuaternion(hq.building.group.quaternion);
+			}
+		}
+		if (hqUp) break;
+	}
+	if (!hqUp) throw new Error('No room for the ANAKIN HQ');
+	{
+		const signRoot = new THREE.Group();
+		signRoot.position.copy(hq.building.group.position);
+		signRoot.quaternion.copy(hq.building.group.quaternion);
+		signRoot.add(hq.sign);
+		scene.add(signRoot);
+	}
+	const hqRight = new THREE.Vector3().crossVectors(hqUp, hqFacing).normalize();
+	const doorDir = stepAlong(hqUp, hqFacing, hq.building.depth / 2 + 0.25);
+	// On the footpath just outside the entrance (clear of the door trigger, off the road).
+	const outsideDir = stepAlong(hqUp, hqFacing, hq.building.depth / 2 + 1.35);
+	// Keep the entrance clear of lamps, trees and carts.
+	layout.reserve(stepAlong(hqUp, hqFacing, hq.building.depth / 2 + 1.2), 1.4, false);
+	const kiosk = createKiosk();
+	const kioskDir =
+		layout.findSpot(
+			stepAlong(
+				stepAlong(hqUp, hqFacing, hq.building.depth / 2 + 1.0),
+				hqRight,
+				hq.building.width / 2 + 0.9
+			),
+			0.45,
+			0.25
+		) ?? outsideDir.clone();
+	{
+		// Screen faces the entrance, so you see it as you run out.
+		const toDoor = doorDir.clone().sub(kioskDir);
+		placeOnSurface(kiosk.group, kioskDir, toDoor.lengthSq() > 1e-10 ? toDoor : hqFacing.clone());
+		scene.add(kiosk.group);
+		layout.reserve(kioskDir, 0.45);
+	}
+	const questSites: QuestSites = {
+		door: doorDir,
+		outside: outsideDir,
+		outward: toTangent(hqFacing.clone(), outsideDir),
+		kiosk: kioskDir
+	};
+	const marker = createQuestMarker();
+	marker.group.visible = false;
+	scene.add(marker.group);
 
 	// Lake with a sandy bank, lily pads and lotus.
 	const lakeDir = layout.findSpot(new THREE.Vector3(0.3, 0.2, -1).normalize(), 5.2, 1.5);
@@ -352,7 +438,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	): boolean => {
 		if (!layout.boxIsFree(dir, facing, b.width, b.depth, FOOTPATH_WIDTH)) return false;
 		addStatic(b.group, dir, facing);
-		layout.reserveBox(dir, facing, b.width, b.depth);
+		layout.reserveBox(dir, facing, b.width, b.depth, buildingHeight(b));
 		return true;
 	};
 
@@ -591,6 +677,17 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			.multiplyScalar(Math.sin(lowElev))
 			.addScaledVector(horizontal, Math.cos(lowElev));
 		lightDir.lerp(moonDir, THREE.MathUtils.smoothstep(l.night, 0.3, 0.9)).normalize();
+		// Title / intro: light the planet from over the camera's shoulder so the orbit never
+		// looks at the dark side; hand back to the gameplay key light as the camera lands.
+		const titleWeight = camMode === 'title' ? 1 : camMode === 'intro' ? 1 - easeInOut(introT) : 0;
+		if (titleWeight > 0) {
+			const camLight = camera.position
+				.clone()
+				.normalize()
+				.add(new THREE.Vector3(0, 0.6, 0))
+				.normalize();
+			lightDir.lerp(camLight, titleWeight).normalize();
+		}
 
 		sun.color.copy(l.sun);
 		sun.intensity = l.sunIntensity;
@@ -604,17 +701,91 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		outline.setSky(l, up, l.night > 0.55 ? moonDir : sunDir);
 	};
 
+	// --- Title orbit & intro fly-in ---------------------------------------------
+	let camMode: CameraMode = 'title';
+	let orbitAngle = 0.6;
+	let introT = 0;
+	let introDuration = 3.2;
+	const orbitPose = () => ({
+		eye: new THREE.Vector3(Math.cos(orbitAngle) * 56, 20, Math.sin(orbitAngle) * 56),
+		target: new THREE.Vector3(0, -2, 0),
+		up: new THREE.Vector3(0, 1, 0)
+	});
+	const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+	const qTmp = new THREE.Quaternion();
+	const Y = new THREE.Vector3(0, 1, 0);
+
+	const updateCamera = (dt: number) => {
+		if (camMode === 'follow') {
+			player.updateCamera(camera, dt);
+			return;
+		}
+		if (camMode === 'title') {
+			orbitAngle += dt * 0.12;
+			const p = orbitPose();
+			camera.position.copy(p.eye);
+			camera.up.copy(p.up);
+			camera.lookAt(p.target);
+			return;
+		}
+		// Intro: the world spins faster and faster while the camera swoops down to the player.
+		introT = Math.min(1, introT + dt / introDuration);
+		orbitAngle += dt * (0.12 + 2.4 * Math.sin(Math.PI * introT));
+		const e = easeInOut(introT);
+		const a = orbitPose();
+		const b = player.followPose();
+		const dirA = a.eye.clone().normalize();
+		const dirB = b.eye.clone().normalize();
+		const dir = dirA
+			.clone()
+			.applyQuaternion(
+				qTmp.identity().slerp(new THREE.Quaternion().setFromUnitVectors(dirA, dirB), e)
+			);
+		// Extra spin around the planet axis that unwinds to zero as we arrive.
+		const spin = (1 - e) * (1 - e) * Math.PI * 1.5;
+		dir.applyAxisAngle(Y, spin);
+		const eye = dir.multiplyScalar(THREE.MathUtils.lerp(a.eye.length(), b.eye.length(), e));
+		const target = a.target.clone().lerp(b.target, e).applyAxisAngle(Y, spin);
+		const up = a.up.clone().lerp(b.up.clone().applyAxisAngle(Y, spin), e).normalize();
+		camera.position.copy(eye);
+		camera.up.copy(up);
+		camera.lookAt(target);
+		if (introT >= 1) {
+			camMode = 'follow';
+			player.resetCamera();
+		}
+	};
+
 	return {
 		camera,
 		player,
+		scene,
+		renderer,
+		outline,
+		quest: questSites,
+		setMarker(dir) {
+			marker.group.visible = !!dir;
+			if (dir) placeOnSurface(marker.group, dir, anyTangent(dir));
+		},
+		setCameraMode(mode, introSeconds = 3.2) {
+			camMode = mode;
+			if (mode === 'intro') {
+				introT = 0;
+				introDuration = introSeconds;
+			}
+			if (mode === 'follow') player.resetCamera();
+		},
+		cameraMode: () => camMode,
 		npcObjects: npcs.map((n) => n.character.group),
 		setAnimationLoop: (callback) => renderer.setAnimationLoop(callback),
-		update(dt, elapsed, input) {
+		update(dt, elapsed, input, opts = {}) {
 			lastElapsed = elapsed;
+			const active = opts.playerActive ?? true;
 			// Traffic reacts to where the player is, then the player can't walk through vehicles.
 			traffic.update(dt, player.up);
-			player.update(dt, input, traffic.colliders);
-			player.updateCamera(camera, dt);
+			player.update(dt, active ? input : { x: 0, z: 0, run: false }, traffic.colliders);
+			updateCamera(dt);
+			marker.update(elapsed);
 			updateNpcs(elapsed);
 			clouds.update(dt);
 			updateSky(elapsed);
@@ -661,6 +832,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			});
 			(planet.material as THREE.Material).dispose();
 			disposeMaterials();
+			disposeSignTextures();
 			renderer.dispose();
 		}
 	};

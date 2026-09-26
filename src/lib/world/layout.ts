@@ -6,6 +6,8 @@ import { anyTangent, randomUnitVector, stepAlong, surfaceDistance } from './sphe
 export interface Circle {
 	dir: THREE.Vector3;
 	radius: number;
+	/** Height (m) of what stands here — buildings set it so the camera can avoid them. */
+	height?: number;
 }
 
 /**
@@ -65,9 +67,17 @@ export class Layout {
 		);
 	}
 
-	reserveBox(up: THREE.Vector3, forward: THREE.Vector3, width: number, depth: number): void {
-		for (const c of this.boxCircles(up, forward, width, depth))
+	reserveBox(
+		up: THREE.Vector3,
+		forward: THREE.Vector3,
+		width: number,
+		depth: number,
+		height?: number
+	): void {
+		for (const c of this.boxCircles(up, forward, width, depth)) {
 			this.reserve(c.dir, c.radius, true, c.radius * 1.02);
+			if (height) this.colliders[this.colliders.length - 1].height = height;
+		}
 	}
 
 	/** Searches outward from `preferred` for a free spot. */
