@@ -33,7 +33,7 @@ export interface GameUi {
 
 const DOOR_RADIUS = 0.75;
 const KIOSK_RADIUS = 1.7;
-const CATCH_RADIUS = 0.75;
+const CATCH_RADIUS = 0.55;
 const FADE_SECONDS = 0.35;
 
 /** Quest director for "The Post-it Heist", tying the planet world and the HQ interior together. */
@@ -261,7 +261,7 @@ export class Game {
 	private grabPostIt() {
 		this.stage = 'escape';
 		this.interior.setPostItOnFridge(false);
-		this.chaser.start({ space: 'in', floor: TOP_FLOOR, x: STAFFER_SEAT.x, z: STAFFER_SEAT.y }, 1.3);
+		this.chaser.start({ space: 'in', floor: TOP_FLOOR, x: STAFFER_SEAT.x, z: STAFFER_SEAT.y }, 2.2);
 		this.emit({ type: 'postIt', code: this.code });
 		this.emit({ type: 'shout', text: 'HEY! That’s MY post-it!!' });
 	}

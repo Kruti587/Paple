@@ -36,7 +36,7 @@ export class Chaser {
 	private trail: Place[] = [];
 	private wait = 0;
 
-	constructor(private readonly speed = 4.3) {}
+	constructor(private readonly speed = 3.3) {}
 
 	start(from: Place, headStart: number) {
 		this.active = true;
