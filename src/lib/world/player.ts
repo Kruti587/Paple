@@ -18,8 +18,8 @@ export class PlayerController {
 	readonly up: THREE.Vector3;
 	readonly facing: THREE.Vector3;
 	readonly viewForward: THREE.Vector3;
-	pitch = 0.78;
-	distance = 10;
+	pitch = 0.42;
+	distance = 5.5;
 
 	private walkPhase = 0;
 	private walkAmount = 0;
@@ -101,7 +101,7 @@ export class PlayerController {
 	}
 
 	zoom(delta: number) {
-		this.distance = THREE.MathUtils.clamp(this.distance * (1 + delta), 5, 30);
+		this.distance = THREE.MathUtils.clamp(this.distance * (1 + delta), 3, 14);
 	}
 
 	/** Where the follow camera wants to be (without smoothing) — used to blend the intro fly-in. */

@@ -12,13 +12,19 @@ import { createPlanet, type GroundPatch } from './planet';
 import { PlayerController } from './player';
 import {
 	createApartmentBlock,
+	createBangalorePalace,
 	createCornerShop,
+	createGlassHouse,
 	createGopuram,
+	createHotel,
 	createHouse,
+	createMuseum,
 	createRowHouse,
 	createVidhanaSoudha,
 	type Building
 } from './props/buildings';
+import { createBrokenUFO, type BrokenUFO } from './props/ufo';
+import { createWildlifeSystem, type WildlifeSystem } from './props/wildlife';
 import { createAnakinHQ, createKiosk, createQuestMarker } from './props/anakinHQ';
 import { createClouds } from './props/clouds';
 import { disposeSignTextures } from './props/signs';
@@ -38,9 +44,17 @@ import { blob, pick, range, sphere } from './props/util';
 import { createAuto, createCar, createScooter, type VehicleKind } from './props/vehicles';
 import { Traffic } from './traffic';
 import { buildRoadNetwork, Road, sphereCap } from './roads';
-import { anyTangent, mulberry32, placeOnSurface, stepAlong, toTangent } from './sphere';
+import { anyTangent, mulberry32, placeOnSurface, stepAlong, surfaceDistance, toTangent } from './sphere';
+import { quests } from '../game/questManager';
 
 const TALK_DISTANCE = 2.4;
+
+export interface Zone {
+	id: string;
+	label: string;
+	dir: THREE.Vector3;
+	radius: number;
+}
 
 export interface World {
 	camera: THREE.PerspectiveCamera;
@@ -69,6 +83,9 @@ export interface World {
 	resize(width: number, height: number): void;
 	/** NPC within talking distance of the player, if any. */
 	nearbyNpc(): string | null;
+	currentZone(): Zone | null;
+	canInteractItem(): { type: 'veena' | 'strut'; prompt: string } | null;
+	interactItem(): void;
 	dispose(): void;
 }
 
@@ -108,7 +125,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFShadowMap;
 	const scene = new THREE.Scene();
-	const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+	const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 200);
 	camera.layers.enable(GLOW_LAYER);
 
 	const ambient = new THREE.AmbientLight(0xffffff, 1.35);
@@ -174,7 +191,11 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		if (!layout.boxIsFree(f.up, facing, b.width, b.depth, FOOTPATH_WIDTH)) return false;
 		const height = buildingHeight(b); // measure before it's moved onto the planet
 		addStatic(b.group, f.up, facing);
-		layout.reserveBox(f.up, facing, b.width, b.depth, height);
+		if (b.hollowFootprint) {
+			layout.reserveWalkthrough(f.up, facing, b.width, b.depth);
+		} else {
+			layout.reserveBox(f.up, facing, b.width, b.depth, height);
+		}
 		return true;
 	};
 
@@ -200,8 +221,29 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	};
 
 	// --- Landmarks ----------------------------------------------------------
-	placeLandmark(createVidhanaSoudha(), mainRoad, 0.14, 1, 1.2);
-	placeLandmark(createGopuram(), crossRoad, 0.32, -1, 0.8);
+	const vidhana = createVidhanaSoudha();
+	placeLandmark(vidhana, mainRoad, 0.14, 1, 1.2);
+	const vidhanaDir = vidhana.group.position.clone().normalize();
+
+	const gopuram = createGopuram();
+	placeLandmark(gopuram, crossRoad, 0.32, -1, 0.2);
+	const gopuramDir = gopuram.group.position.clone().normalize();
+
+	const hotel = createHotel(rand);
+	placeLandmark(hotel, mainRoad, 0.42, -1, 0.3);
+	const hotelDir = hotel.group.position.clone().normalize();
+
+	const museum = createMuseum();
+	placeLandmark(museum, mainRoad, 0.74, 1, 0.4);
+	const museumDir = museum.group.position.clone().normalize();
+
+	const glassHouse = createGlassHouse();
+	placeLandmark(glassHouse, crossRoad, 0.52, 1, 0.4);
+	const glassHouseDir = glassHouse.group.position.clone().normalize();
+
+	const palace = createBangalorePalace();
+	placeLandmark(palace, crossRoad, 0.84, 1, 0.5);
+	const palaceDir = palace.group.position.clone().normalize();
 
 	// The start area: a busy junction on the main road.
 	const junction = network.junctions[0] ?? mainRoad.samples[0];
@@ -295,6 +337,11 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		layout.reserve(lakeDir, 5.2, true, 4.3);
 	}
 
+	let ufo: BrokenUFO | null = null;
+	let wildlife: WildlifeSystem | null = null;
+	let hasVeena = false;
+	let hasStrut = false;
+
 	// Cubbon-park-style grove with benches.
 	const parkDir = layout.findSpot(new THREE.Vector3(-0.6, 0.7, 0.4).normalize(), 5, 1);
 	if (parkDir) {
@@ -316,6 +363,18 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			addStatic(createBench(), p, t.clone().negate());
 			layout.reserve(p, 0.6);
 		}
+
+		// Broken UFO crash-landed in Cubbon Park
+		ufo = createBrokenUFO();
+		const ufoPos = stepAlong(parkDir, anyTangent(parkDir), 1.8);
+		placeOnSurface(ufo.group, ufoPos, anyTangent(ufoPos));
+		scene.add(ufo.group);
+		layout.reserve(ufoPos, 2.4, true);
+
+		// Ambient wildlife system (birds flying, butterflies fluttering, rabbits hopping)
+		wildlife = createWildlifeSystem(parkDir, lakeDir ?? undefined);
+		placeOnSurface(wildlife.group, parkDir, anyTangent(parkDir));
+		scene.add(wildlife.group);
 	}
 
 	// Granite boulders — Bengaluru sits on some of the oldest rock on Earth.
@@ -379,12 +438,25 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 
 	// --- Houses & avenue trees lining both roads -----------------------------
 	// Mostly two-storey homes; Bangalore streets are packed wall-to-wall.
+	// Shuffle-deck: cycle through all four types before any type repeats.
+	// Much better visual variety than a plain rand() branch.
+	const deckFactories: (() => Building)[] = [
+		() => createHouse(rand),
+		() => createRowHouse(rand),
+		() => createCornerShop(rand),
+		() => createApartmentBlock(rand)
+	];
+	let deckPool: (() => Building)[] = [];
 	const randomBuilding = (): Building => {
-		const r = rand();
-		if (r < 0.55) return createHouse(rand);
-		if (r < 0.8) return createRowHouse(rand);
-		if (r < 0.95) return createCornerShop(rand);
-		return createApartmentBlock(rand);
+		if (!deckPool.length) {
+			// Reshuffle: Fisher-Yates with our seeded rand
+			deckPool = [...deckFactories];
+			for (let i = deckPool.length - 1; i > 0; i--) {
+				const j = Math.floor(rand() * (i + 1));
+				[deckPool[i], deckPool[j]] = [deckPool[j], deckPool[i]];
+			}
+		}
+		return deckPool.pop()!();
 	};
 
 	for (const road of roads) {
@@ -547,10 +619,10 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 
 	// --- NPCs ---------------------------------------------------------------
 	const npcAnchors: Record<string, THREE.Vector3 | undefined> = {
-		chef: chaiFrame?.up,
+		chef: hotelDir,
 		diver: lakeDir ?? undefined,
-		alien: parkDir ?? undefined,
-		musician: crossRoad.frameAt(0.32).up,
+		alien: parkDir ? stepAlong(parkDir, anyTangent(parkDir), 1.2) : undefined,
+		musician: crossRoad.frameAt(0.68).up,
 		caveman: boulderDir
 	};
 	const npcs: Npc[] = [];
@@ -792,6 +864,8 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			updateNpcs(elapsed);
 			clouds.update(dt);
 			updateSky(elapsed);
+			ufo?.update(elapsed);
+			wildlife?.update(elapsed, dt);
 		},
 		hour: () => currentHour,
 		skipHours(hours) {
@@ -825,6 +899,44 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 				}
 			}
 			return best;
+		},
+		currentZone(): Zone | null {
+			const ZONES: Zone[] = [
+				{ id: 'market', label: 'Junction Market', dir: junction.clone().normalize(), radius: 8 },
+				{ id: 'temple', label: 'Sri Ganesha Temple', dir: gopuramDir, radius: 5.5 },
+				{ id: 'hotel', label: 'Ramesh Grand Hotel', dir: hotelDir, radius: 5.0 },
+				{ id: 'park', label: 'Cubbon Park & UFO Crash', dir: parkDir ?? junction.clone().normalize(), radius: 6.0 },
+				{ id: 'lake', label: 'Ulsoor Lake', dir: lakeDir ?? junction.clone().normalize(), radius: 6.0 },
+				{ id: 'boulders', label: 'Precambrian Boulders', dir: boulderDir ?? junction.clone().normalize(), radius: 5.0 },
+				{ id: 'museum', label: 'Karnataka Science Museum', dir: museumDir, radius: 6.0 },
+				{ id: 'glasshouse', label: 'Lalbagh Glass House', dir: glassHouseDir, radius: 6.0 },
+				{ id: 'palace', label: 'Bangalore Palace', dir: palaceDir, radius: 6.5 },
+				{ id: 'promenade', label: 'MG Road Promenade', dir: crossRoad.frameAt(0.68).up, radius: 6.0 }
+			];
+			for (const z of ZONES) {
+				if (surfaceDistance(player.up, z.dir) <= z.radius) return z;
+			}
+			return null;
+		},
+		canInteractItem() {
+			if (!hasVeena && surfaceDistance(player.up, gopuramDir) < 3.2) {
+				return { type: 'veena' as const, prompt: 'Press [E] to collect the Divine Veena' };
+			}
+			if (!hasStrut && surfaceDistance(player.up, museumDir) < 3.5) {
+				return { type: 'strut' as const, prompt: 'Press [E] to acquire the Quantum Titanium Strut' };
+			}
+			return null;
+		},
+		interactItem() {
+			const item = this.canInteractItem();
+			if (!item) return;
+			if (item.type === 'veena') {
+				hasVeena = true;
+				quests.completeTask('musician_veena', 'get_veena');
+			} else if (item.type === 'strut') {
+				hasStrut = true;
+				quests.completeTask('alien_ufo_repair', 'steal_strut');
+			}
 		},
 		dispose() {
 			outline.dispose();

@@ -80,6 +80,28 @@ export class Layout {
 		}
 	}
 
+	reserveWalkthrough(
+		up: THREE.Vector3,
+		forward: THREE.Vector3,
+		width: number,
+		depth: number
+	): void {
+		// 1. Reserve the full footprint as non-solid (solid = false)
+		// so NO other buildings, back-row houses, or trees ever spawn inside the temple!
+		for (const c of this.boxCircles(up, forward, width, depth)) {
+			this.reserve(c.dir, c.radius * 1.05, false);
+		}
+		// 2. Add solid colliders ONLY along the perimeter walls, leaving a 2.4m central aisle open
+		const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+		const wallOffset = width * 0.38;
+		const wallRadius = width * 0.16;
+		this.reserve(stepAlong(up, right, -wallOffset), wallRadius, true);
+		this.reserve(stepAlong(stepAlong(up, right, -wallOffset), forward, -depth * 0.28), wallRadius, true);
+		this.reserve(stepAlong(up, right, wallOffset), wallRadius, true);
+		this.reserve(stepAlong(stepAlong(up, right, wallOffset), forward, -depth * 0.28), wallRadius, true);
+		this.reserve(stepAlong(up, forward, -depth * 0.44), width * 0.30, true);
+	}
+
 	/** Searches outward from `preferred` for a free spot. */
 	findSpot(
 		preferred: THREE.Vector3,

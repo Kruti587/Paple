@@ -14,6 +14,9 @@
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
 	import Terminal from '$lib/components/Terminal.svelte';
 	import TitleScreen from '$lib/components/TitleScreen.svelte';
+	import TaskList from '$lib/components/TaskList.svelte';
+	import ZoneBanner from '$lib/components/ZoneBanner.svelte';
+	import { quests } from '$lib/game/questManager';
 	import { Game, type GameEvent, type GameUi } from '$lib/game/game';
 	import { npcConfig } from '$lib/npcConfig';
 	import { createWorld } from '$lib/world/createWorld';
@@ -46,6 +49,8 @@
 	let showPostIt = $state(false);
 	let banner = $state<'caught' | 'complete' | null>(null);
 	let terminalOpen = $state(false);
+	let currentZoneLabel = $state('');
+	let itemPrompt = $state<string | null>(null);
 
 	// --- NPC dialogue ---
 	let activeNpcId = $state<string | null>(null);
@@ -56,7 +61,34 @@
 	const openDialogue = (npcId: string) => {
 		// NPC chats only outdoors, and not mid-chase.
 		if (!game?.controllable || game.space !== 'out' || ui?.chasing) return;
-		if (npcId in npcConfig) activeNpcId = npcId;
+		if (npcId in npcConfig) {
+			activeNpcId = npcId;
+			// Activate and progress quest for this character
+			const questMap: Record<string, string> = {
+				musician: 'musician_veena',
+				chef: 'chef_chai_rush',
+				alien: 'alien_ufo_repair',
+				diver: 'mani_lake_revival',
+				caveman: 'grog_ancient_spark'
+			};
+			if (npcId in questMap) {
+				quests.activateQuest(questMap[npcId]);
+				if (npcId === 'musician') {
+					quests.completeTask('musician_veena', 'talk_musician');
+					if (quests.hasCompletedTask('musician_veena', 'get_veena')) {
+						quests.completeTask('musician_veena', 'deliver_veena');
+					}
+				} else if (npcId === 'chef') {
+					quests.completeTask('chef_chai_rush', 'talk_chef');
+				} else if (npcId === 'alien') {
+					quests.completeTask('alien_ufo_repair', 'inspect_ufo');
+				} else if (npcId === 'diver') {
+					quests.completeTask('mani_lake_revival', 'talk_mani');
+				} else if (npcId === 'caveman') {
+					quests.completeTask('grog_ancient_spark', 'talk_grog');
+				}
+			}
+		}
 	};
 
 	const timers: Record<string, ReturnType<typeof setTimeout>> = {};
@@ -163,6 +195,13 @@
 					return;
 				}
 				if (e.code === 'KeyE' && !activeNpcId) {
+					const interactable = world.canInteractItem();
+					if (interactable) {
+						world.interactItem();
+						keyboard.reset();
+						e.preventDefault();
+						return;
+					}
 					// Quest interactions first, then NPC chat.
 					if (g.interact()) {
 						keyboard.reset();
@@ -204,6 +243,8 @@
 					}
 					const near = g.space === 'out' && g.controllable ? world.nearbyNpc() : null;
 					if (near !== nearbyNpcId) nearbyNpcId = near;
+					currentZoneLabel = world.currentZone()?.label ?? '';
+					itemPrompt = world.canInteractItem()?.prompt ?? null;
 				}
 				const hour = world.hour();
 				const label = formatClock(hour);
@@ -263,10 +304,15 @@
 
 		{#if ui}
 			<QuestHud {ui} {toast} {shout} {showPostIt} {banner} />
-			{#if nearbyNpc && !activeNpcId && !ui.prompt}
+			{#if itemPrompt && !activeNpcId}
+				<div class="prompt">{itemPrompt}</div>
+			{:else if nearbyNpc && !activeNpcId && !ui.prompt}
 				<div class="prompt">Press <kbd>E</kbd> or click to talk to {nearbyNpc.name}</div>
 			{/if}
 		{/if}
+
+		<ZoneBanner zoneLabel={currentZoneLabel} />
+		<TaskList />
 	{/if}
 
 	{#if activeNpcId && activeNpc}
