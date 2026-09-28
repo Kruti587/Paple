@@ -724,31 +724,39 @@ export function createGopuram(): Building {
 
 	// ── 10. THE SACRED OBJECT: DIVINE VEENA (CARNATIC MUSICAL INSTRUMENT) ─
 	// Resting proudly on a ceremonial red-and-gold stand right before the altar
-	// Ceremonial cushion stand
 	box(g, 1.3, 0.10, 0.44, PALETTE.templeRed, 0, 0.36, 0.40);
 	box(g, 1.36, 0.04, 0.50, PALETTE.gold, 0, 0.33, 0.40);
 
+	const templeVeena = createVeenaModel();
+	g.add(templeVeena);
+	g.userData.veena = templeVeena;
+
+	return { group: g, width: 5.6, depth: 7.0, hollowFootprint: true };
+}
+
+/** Creates a standalone Divine Carnatic Veena model. */
+export function createVeenaModel(): THREE.Group {
+	const v = new THREE.Group();
 	// Veena main resonator gourd (Kudam) on right
-	sphere(g, 0.22, '#7a3818', 0.38, 0.52, 0.40, 14);
-	cylinder(g, 0.16, 0.16, 0.04, '#fff9ea', 0.38, 0.64, 0.40, 10);
+	sphere(v, 0.22, '#7a3818', 0.38, 0.52, 0.40, 14);
+	cylinder(v, 0.16, 0.16, 0.04, '#fff9ea', 0.38, 0.64, 0.40, 10);
 	// Veena long neck (Dandi)
-	const dandi = cylinder(g, 0.045, 0.045, 0.82, '#5c2a12', -0.05, 0.54, 0.40, 8);
+	const dandi = cylinder(v, 0.045, 0.045, 0.82, '#5c2a12', -0.05, 0.54, 0.40, 8);
 	dandi.rotation.z = Math.PI / 2;
 	// Golden frets along the neck
 	for (let f = 0; f < 5; f++) {
-		box(g, 0.02, 0.025, 0.07, PALETTE.gold, -0.32 + f * 0.12, 0.58, 0.40);
+		box(v, 0.02, 0.025, 0.07, PALETTE.gold, -0.32 + f * 0.12, 0.58, 0.40);
 	}
 	// Secondary resonator gourd on left
-	sphere(g, 0.12, '#7a3818', -0.42, 0.44, 0.40, 10);
+	sphere(v, 0.12, '#7a3818', -0.42, 0.44, 0.40, 10);
 	// Golden carved Yali dragon head scroll at pegbox
-	sphere(g, 0.08, PALETTE.gold, -0.52, 0.56, 0.40, 8);
-	cylinder(g, 0.025, 0.045, 0.14, PALETTE.gold, -0.55, 0.64, 0.40, 6);
+	sphere(v, 0.08, PALETTE.gold, -0.52, 0.56, 0.40, 8);
+	cylinder(v, 0.025, 0.045, 0.14, PALETTE.gold, -0.55, 0.64, 0.40, 6);
 
 	// Golden sacred quest sparkle aura around the Veena
-	const glowRing = cylinder(g, 0.46, 0.46, 0.02, PALETTE.gold, 0, 0.40, 0.40, 16);
+	const glowRing = cylinder(v, 0.46, 0.46, 0.02, PALETTE.gold, 0, 0.40, 0.40, 16);
 	glowRing.scale.set(1.4, 1, 0.6);
-
-	return { group: g, width: 5.6, depth: 7.0, hollowFootprint: true };
+	return v;
 }
 
 /** Helper to add a tourist NPC figure taking a photo with a camera. */
@@ -917,48 +925,146 @@ export function createBangalorePalace(): Building {
 	return { group: g, width: 11.4, depth: 7.8 };
 }
 
-/** 🌺 Lalbagh Botanical Garden Glass House (Victorian Iron & Glass Wonder, 1889) */
+/** 🌺 Lalbagh Botanical Garden Glass House (Authentic 1889 Crystal Palace matching user photograph) */
 export function createGlassHouse(): Building {
 	const g = new THREE.Group();
-	const width = 9.8;
-	const depth = 7.0;
+	const width = 10.6;
+	const depth = 7.8;
+	const ironGreen = '#14532d'; // Deep Victorian green ironwork
+	const glassTint = '#e0f2fe'; // Translucent tinted conservatory glass
+	const brickRed = '#b91c1c';  // Terracotta red plinth walls
+	const stoneYellow = '#eab308'; // Bangalore yellow step stone
 
-	// Stone basement foundation
-	box(g, width + 0.4, 0.35, depth + 0.4, '#e2e8f0', 0, 0.175, 0);
-
-	// Victorian iron & glass greenhouse hall
-	box(g, width, 2.2, depth, '#bae6fd', 0, 1.45, 0);
-	// Dark green iron structural ribs
-	for (let x = -4; x <= 4; x++) {
-		box(g, 0.08, 2.25, depth + 0.04, '#14532d', x * 1.1, 1.45, 0);
+	// ── 1. RED BRICK TERRACE & YELLOW STEPS (Forecourt from Photo) ─────
+	// Lower terrace plinth
+	box(g, width + 1.2, 0.35, depth + 3.8, brickRed, 0, 0.175, 1.2);
+	// Yellow stone steps leading up
+	for (let s = 0; s < 3; s++) {
+		box(g, 4.4 - s * 0.4, 0.12, 0.6, stoneYellow, 0, 0.06 + s * 0.12, depth / 2 + 2.8 - s * 0.4);
 	}
 
-	// Majestic Victorian Center Glass Dome
-	cylinder(g, 1.8, 2.0, 1.2, '#14532d', 0, 3.15, 0, 16);
-	const dome = sphere(g, 1.8, '#7dd3fc', 0, 3.8, 0, 16);
-	dome.scale.set(1, 0.75, 1);
-	// Spire finial
-	cylinder(g, 0.02, 0.1, 0.8, PALETTE.gold, 0, 5.4, 0, 8);
-	sphere(g, 0.12, PALETTE.gold, 0, 5.85, 0, 8);
+	// ── 2. GRAND MULTI-TIERED FOUNTAIN (Center Foreground from Photo) ───
+	const fz = depth / 2 + 1.6;
+	// Circular fountain water basin
+	cylinder(g, 1.45, 1.55, 0.45, brickRed, 0, 0.35, fz, 16);
+	cylinder(g, 1.35, 1.35, 0.08, '#38bdf8', 0, 0.48, fz, 16); // pool water
+	// Fountain pedestal & tiered bowls
+	cylinder(g, 0.22, 0.3, 0.8, '#f8fafc', 0, 0.85, fz, 10);
+	cylinder(g, 0.75, 0.6, 0.18, '#f8fafc', 0, 1.25, fz, 12); // lower bowl
+	cylinder(g, 0.15, 0.18, 0.6, '#f8fafc', 0, 1.6, fz, 8);
+	cylinder(g, 0.42, 0.3, 0.14, '#f8fafc', 0, 1.95, fz, 10); // upper bowl
+	// Spouting water jet sprays
+	sphere(g, 0.12, '#bae6fd', 0, 2.2, fz, 8);
+	for (let j = 0; j < 6; j++) {
+		const ja = (j / 6) * Math.PI * 2;
+		const spray = cylinder(g, 0.02, 0.04, 0.35, '#7dd3fc', Math.sin(ja) * 0.25, 2.05, fz + Math.cos(ja) * 0.25, 4);
+		spray.rotation.z = Math.sin(ja) * 0.4;
+		spray.rotation.x = Math.cos(ja) * 0.4;
+	}
 
-	// Classical Victorian arched entrance portico with "1889" date plaque
-	box(g, 2.8, 2.6, 1.0, '#f8fafc', 0, 1.5, depth / 2 + 0.5);
-	box(g, 1.6, 0.3, 0.1, '#1e293b', 0, 2.6, depth / 2 + 1.02); // 1889 plaque
-
-	// Colorful flower beds flanking the entrance
-	for (const fx of [-3.2, 3.2]) {
-		box(g, 2.4, 0.25, 1.2, '#78350f', fx, 0.25, depth / 2 + 0.8);
-		// Flowers
-		for (let k = 0; k < 6; k++) {
-			const col = ['#e11d48', '#f59e0b', '#8b5cf6', '#ec4899'][k % 4];
-			sphere(g, 0.12, col, fx - 0.8 + (k % 3) * 0.8, 0.45, depth / 2 + 0.6 + Math.floor(k / 3) * 0.4, 6);
+	// ── 3. ORNATE VICTORIAN WHITE 5-GLOBE LAMPPOSTS (from Photo) ───────
+	for (const lx of [-3.8, 3.8]) {
+		const lz = depth / 2 + 2.2;
+		// Red plinth
+		box(g, 0.65, 0.65, 0.65, brickRed, lx, 0.325, lz);
+		// White cast iron pole
+		cylinder(g, 0.07, 0.12, 1.6, '#f8fafc', lx, 1.45, lz, 8);
+		// Center globe
+		sphere(g, 0.15, '#ffffff', lx, 2.4, lz, 8);
+		// 4 Side arm globes
+		for (const sx of [-0.32, 0.32]) {
+			cylinder(g, 0.03, 0.03, 0.32, '#f8fafc', lx + sx / 2, 2.15, lz, 4).rotation.z = Math.PI / 2;
+			sphere(g, 0.12, '#ffffff', lx + sx, 2.25, lz, 8);
+		}
+		for (const sz of [-0.32, 0.32]) {
+			cylinder(g, 0.03, 0.03, 0.32, '#f8fafc', lx, 2.15, lz + sz / 2, 4).rotation.x = Math.PI / 2;
+			sphere(g, 0.12, '#ffffff', lx, 2.25, lz + sz, 8);
 		}
 	}
 
-	// Tourists taking photos and admiring the Glass House
-	addTourist(g, -1.8, depth / 2 + 1.6, 0.15);
-	addTourist(g,  1.8, depth / 2 + 1.6, -0.15);
+	// ── 4. FLOWER BEDS & MANICURED HEDGES IN FORECOURT (from Photo) ─────
+	for (const hx of [-2.4, 2.4]) {
+		// Low green hedge
+		box(g, 1.6, 0.45, 0.5, '#15803d', hx, 0.55, depth / 2 + 2.5);
+		// Golden yellow marigold border (from photo)
+		for (let m = 0; m < 5; m++) {
+			sphere(g, 0.12, '#facc15', hx - 0.6 + m * 0.3, 0.8, depth / 2 + 2.5, 6);
+		}
+	}
 
-	return { group: g, width: 10.2, depth: 7.6 };
+	// ── 5. MAIN VICTORIAN GLASS HOUSE STRUCTURE (1889 Arch & Trusses) ──
+	const baseY = 0.35;
+	// Grand arched central glass pavilion (Matching photograph shape)
+	// Outer glass envelope
+	box(g, width, 3.2, depth, glassTint, 0, baseY + 1.6, 0);
+
+	// Victorian Green Iron Columns and Arches (Glazing Bars)
+	for (let x = -5; x <= 5; x++) {
+		const cx = x * 1.0;
+		cylinder(g, 0.07, 0.07, 3.2, ironGreen, cx, baseY + 1.6, depth / 2, 8);
+		cylinder(g, 0.07, 0.07, 3.2, ironGreen, cx, baseY + 1.6, -depth / 2, 8);
+	}
+	// Arched iron roof trusses
+	for (let z = -3; z <= 3; z++) {
+		const cz = z * 1.1;
+		cylinder(g, 0.07, 0.07, 3.2, ironGreen, -width / 2, baseY + 1.6, cz, 8);
+		cylinder(g, 0.07, 0.07, 3.2, ironGreen, width / 2, baseY + 1.6, cz, 8);
+	}
+
+	// Semicircular grand glass arch portal with radiating tracery (Matching Photo)
+	cylinder(g, 2.6, 2.6, 0.25, ironGreen, 0, baseY + 3.2, depth / 2 + 0.05, 16);
+	cylinder(g, 2.4, 2.4, 0.28, glassTint, 0, baseY + 3.2, depth / 2 + 0.05, 16);
+	// Triangular glass pediment apex (Top of Photo)
+	box(g, 4.8, 0.2, depth, ironGreen, 0, baseY + 4.2, 0);
+	const roofGlass = box(g, 4.4, 0.8, depth - 0.2, glassTint, 0, baseY + 4.6, 0);
+	roofGlass.scale.set(1, 0.8, 1);
+	// Roof crest iron filigree & apex finial (from photo)
+	cylinder(g, 0.02, 0.06, 0.8, PALETTE.gold, 0, baseY + 5.3, depth / 2 + 0.05, 8);
+	sphere(g, 0.14, PALETTE.gold, 0, baseY + 5.75, depth / 2 + 0.05, 8);
+
+	// ── 6. VIBRANT INTERIOR FILLED WITH FLOWERS! (Visible from outside) ─
+	// Center multi-tiered floral pyramid display
+	for (let t = 0; t < 3; t++) {
+		const ty = baseY + 0.2 + t * 0.4;
+		const tw = 3.6 - t * 0.9;
+		const td = 2.8 - t * 0.7;
+		box(g, tw, 0.38, td, '#334155', 0, ty, 0); // tier stand
+		// Packed colorful blossoms (Roses, Orchids, Marigolds, Lilies)
+		const flowerColors = ['#ef4444', '#f59e0b', '#ec4899', '#a855f7', '#3b82f6', '#ffffff', '#e11d48'];
+		for (let p = 0; p < 12 - t * 3; p++) {
+			const col = flowerColors[(p + t * 3) % flowerColors.length];
+			const ang = (p / (12 - t * 3)) * Math.PI * 2;
+			const fx = Math.cos(ang) * (tw / 2 - 0.2);
+			const fz2 = Math.sin(ang) * (td / 2 - 0.2);
+			sphere(g, 0.16, col, fx, ty + 0.28, fz2, 6);
+		}
+	}
+
+	// Side aisle floral display tables along left and right interior walls
+	for (const sx of [-3.8, 3.8]) {
+		box(g, 1.2, 0.5, 4.8, '#475569', sx, baseY + 0.35, 0);
+		for (let k = 0; k < 10; k++) {
+			const kz = -2.0 + k * 0.45;
+			const pCol = ['#f43f5e', '#fbbf24', '#c084fc', '#fb7185', '#38bdf8', '#34d399'][k % 6];
+			sphere(g, 0.18, pCol, sx + (k % 2 === 0 ? 0.2 : -0.2), baseY + 0.75, kz, 6);
+		}
+	}
+
+	// Hanging flower baskets from the roof trusses!
+	for (const hx of [-2.2, 2.2]) {
+		for (const hz of [-1.8, 1.8]) {
+			cylinder(g, 0.015, 0.015, 1.1, ironGreen, hx, baseY + 3.0, hz, 4); // chain
+			cylinder(g, 0.3, 0.2, 0.2, '#78350f', hx, baseY + 2.4, hz, 8);    // basket
+			sphere(g, 0.25, '#f43f5e', hx, baseY + 2.55, hz, 6);             // flowers overflowing
+			sphere(g, 0.18, '#fbbf24', hx + 0.12, baseY + 2.5, hz + 0.1, 6);
+			sphere(g, 0.18, '#ec4899', hx - 0.12, baseY + 2.5, hz - 0.1, 6);
+		}
+	}
+
+	// ── 7. TOURISTS ADMIRING THE FLOWER SHOW ───────────────────────────
+	addTourist(g, -2.8, depth / 2 + 1.8, 0.2);
+	addTourist(g,  2.8, depth / 2 + 1.8, -0.2);
+
+	return { group: g, width: 11.2, depth: 8.4, hollowFootprint: true };
 }
 

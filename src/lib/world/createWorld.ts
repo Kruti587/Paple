@@ -20,11 +20,13 @@ import {
 	createHouse,
 	createMuseum,
 	createRowHouse,
+	createVeenaModel,
 	createVidhanaSoudha,
 	type Building
 } from './props/buildings';
 import { createBrokenUFO, type BrokenUFO } from './props/ufo';
 import { createWildlifeSystem, type WildlifeSystem } from './props/wildlife';
+import { createTharCrashEvent, type TharCrashEvent } from './props/tharCrash';
 import { createAnakinHQ, createKiosk, createQuestMarker } from './props/anakinHQ';
 import { createClouds } from './props/clouds';
 import { disposeSignTextures } from './props/signs';
@@ -84,8 +86,9 @@ export interface World {
 	/** NPC within talking distance of the player, if any. */
 	nearbyNpc(): string | null;
 	currentZone(): Zone | null;
-	canInteractItem(): { type: 'veena' | 'strut' | 'relic' | 'flint' | 'ufo'; prompt: string } | null;
+	canInteractItem(): { type: 'veena' | 'veena_deliver' | 'strut' | 'relic' | 'flint' | 'ufo'; prompt: string } | null;
 	interactItem(): void;
+	tharChatter(): string | null;
 	dispose(): void;
 }
 
@@ -321,7 +324,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 
 	let ufo: BrokenUFO | null = null;
 	let wildlife: WildlifeSystem | null = null;
+	let tharCrash: TharCrashEvent | null = null;
 	let hasVeena = false;
+	let hasDeliveredVeena = false;
 	let hasStrut = false;
 	let hasSunkenRelic = false;
 	let hasFlint = false;
@@ -679,6 +684,13 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		musician: crossRoad.frameAt(0.68, ROAD_HALF_WIDTH + FOOTPATH_WIDTH * 0.5).up,
 		caveman: stepAlong(boulderApproach, boulderFrame.right.clone().multiplyScalar(-1), 0.9)
 	};
+	// Veena resting beside Musician once presented
+	const musicianVeena = createVeenaModel();
+	musicianVeena.scale.set(0.85, 0.85, 0.85);
+	musicianVeena.position.set(0.45, 0.18, 0.25);
+	musicianVeena.rotation.set(0.1, 0.4, 0.2);
+	musicianVeena.visible = false;
+
 	const npcs: Npc[] = [];
 	for (const id of npcIds) {
 		const anchor = npcAnchors[id] ?? mainRoad.frameAt(rand(), 4).up;
@@ -686,6 +698,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		const character = createNpcCharacter(id);
 		character.group.userData.npcId = id;
 		character.group.traverse((o) => (o.castShadow = true));
+		if (id === 'musician') {
+			character.group.add(musicianVeena);
+		}
 		const facing = anyTangent(up).applyAxisAngle(up, rand() * Math.PI * 2);
 		placeOnSurface(character.group, up, facing);
 		scene.add(character.group);
@@ -697,6 +712,15 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	const spawnFrame = mainRoad.frameAt(jU + 0.03, -(ROAD_HALF_WIDTH + FOOTPATH_WIDTH * 0.5));
 	const playerChar = createPlayer();
 	playerChar.group.traverse((o) => (o.castShadow = true));
+
+	// Wearable Veena slung across player's back
+	const playerVeena = createVeenaModel();
+	playerVeena.scale.set(0.65, 0.65, 0.65);
+	playerVeena.position.set(-0.06, 0.82, -0.22);
+	playerVeena.rotation.set(0.25, 0.12, -0.78);
+	playerChar.group.add(playerVeena);
+	playerVeena.visible = false;
+
 	scene.add(playerChar.group);
 	const player = new PlayerController(
 		playerChar,
@@ -706,6 +730,13 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	);
 	player.waterCenter = lakeDir;
 	player.waterRadius = 4.4;
+
+	// ── MAHINDRA THAR POLE CRASH EVENT (Curbside on Main Road u=0.58) ──────
+	tharCrash = createTharCrashEvent();
+	const tharFrame = mainRoad.frameAt(0.58, 1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1.2));
+	placeOnSurface(tharCrash.group, tharFrame.up, tharFrame.forward);
+	scene.add(tharCrash.group);
+	layout.reserve(tharFrame.up, 2.6, false);
 
 	// --- Traffic --------------------------------------------------------------
 	const traffic = new Traffic();
@@ -922,6 +953,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			updateSky(elapsed);
 			ufo?.update(elapsed);
 			wildlife?.update(elapsed, dt);
+			tharCrash?.update(elapsed, dt);
+			playerVeena.visible = hasVeena && !hasDeliveredVeena;
+			musicianVeena.visible = hasDeliveredVeena;
 		},
 		hour: () => currentHour,
 		skipHours(hours) {
@@ -978,6 +1012,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			if (!hasVeena && surfaceDistance(player.up, gopuramDir) < 3.2) {
 				return { type: 'veena' as const, prompt: 'Press [E] to collect the Divine Veena' };
 			}
+			if (hasVeena && !hasDeliveredVeena && surfaceDistance(player.up, crossRoad.frameAt(0.68).up) < 3.2) {
+				return { type: 'veena_deliver' as const, prompt: 'Press [E] to present the Divine Veena to Vidwan Sundaram' };
+			}
 			if (!hasStrut && surfaceDistance(player.up, museumDir) < 3.5) {
 				return { type: 'strut' as const, prompt: 'Press [E] to acquire the Quantum Titanium Strut' };
 			}
@@ -998,6 +1035,15 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			if (item.type === 'veena') {
 				hasVeena = true;
 				quests.completeTask('musician_veena', 'get_veena');
+				if (gopuram.group.userData.veena) {
+					gopuram.group.userData.veena.visible = false;
+				}
+				playerVeena.visible = true;
+			} else if (item.type === 'veena_deliver') {
+				hasDeliveredVeena = true;
+				playerVeena.visible = false;
+				musicianVeena.visible = true;
+				quests.completeTask('musician_veena', 'deliver_veena');
 			} else if (item.type === 'strut') {
 				hasStrut = true;
 				quests.completeTask('alien_ufo_repair', 'steal_strut');
@@ -1011,6 +1057,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 				inspectedUfo = true;
 				quests.completeTask('alien_ufo_repair', 'inspect_ufo');
 			}
+		},
+		tharChatter(): string | null {
+			return tharCrash ? tharCrash.getChatter(player.position) : null;
 		},
 		dispose() {
 			outline.dispose();

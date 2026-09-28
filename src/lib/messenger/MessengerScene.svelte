@@ -51,6 +51,7 @@
 	let terminalOpen = $state(false);
 	let currentZoneLabel = $state('');
 	let itemPrompt = $state<string | null>(null);
+	let tharChatter = $state<string | null>(null);
 
 	// --- NPC dialogue ---
 	let activeNpcId = $state<string | null>(null);
@@ -245,6 +246,7 @@
 					if (near !== nearbyNpcId) nearbyNpcId = near;
 					currentZoneLabel = world.currentZone()?.label ?? '';
 					itemPrompt = world.canInteractItem()?.prompt ?? null;
+					tharChatter = world.tharChatter();
 				}
 				const hour = world.hour();
 				const label = formatClock(hour);
@@ -288,10 +290,9 @@
 			<strong>Namma Planet</strong>
 			<span>WASD to walk · Shift to run · drag to look · scroll to zoom</span>
 		</div>
-		<div class="top-right">
-			<div class="clock" class:night={isNight} title="30 real minutes = one day, 8 AM to 8 PM">
+		<div class="bottom-right">
+			<div class="clock" class:night={isNight} title="Current Time in Bengaluru">
 				<strong>{clock}</strong>
-				<span><kbd>[</kbd> <kbd>]</kbd> change time</span>
 			</div>
 			<button
 				class="gear"
@@ -299,7 +300,7 @@
 				aria-label={musicOn ? 'Mute music' : 'Unmute music'}
 				title={musicOn ? 'Mute music' : 'Unmute music'}>{musicOn ? '🔊' : '🔇'}</button
 			>
-			<button class="gear" onclick={() => (settingsOpen = true)} aria-label="Settings">⚙</button>
+			<button class="gear" onclick={() => (settingsOpen = true)} aria-label="Settings" title="Settings">⚙</button>
 		</div>
 
 		{#if ui}
@@ -313,6 +314,10 @@
 
 		<ZoneBanner zoneLabel={currentZoneLabel} />
 		<TaskList />
+
+		{#if tharChatter}
+			<div class="thar-bubble">{tharChatter}</div>
+		{/if}
 	{/if}
 
 	{#if activeNpcId && activeNpc}
@@ -380,56 +385,83 @@
 		color: #363a3c;
 		font-size: 0.85rem;
 	}
-	.top-right {
+	.bottom-right {
 		position: absolute;
-		top: 1rem;
-		right: 1rem;
+		bottom: 1.25rem;
+		right: 1.25rem;
 		display: flex;
-		align-items: flex-start;
-		gap: 0.5rem;
+		align-items: center;
+		gap: 0.6rem;
+		z-index: 40;
 	}
 	.clock {
 		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 0.2rem;
-		padding: 0.6rem 0.9rem;
-		border-radius: 0.6rem;
-		background: rgb(255 255 255 / 0.75);
-		color: #363a3c;
-		font-size: 0.8rem;
-		transition:
-			background 2s,
-			color 2s;
+		align-items: center;
+		justify-content: center;
+		padding: 0.55rem 0.95rem;
+		border-radius: 0.75rem;
+		background: rgba(255, 255, 255, 0.88);
+		border: 2px solid #363a3c;
+		box-shadow: 0 3px 0 #363a3c;
+		color: #1e293b;
+		font-size: 0.95rem;
+		transition: background 1s, color 1s;
 	}
 	.clock strong {
-		font-size: 1.1rem;
+		font-size: 1.05rem;
 		font-variant-numeric: tabular-nums;
+		font-weight: 700;
 	}
 	.clock.night {
-		background: rgb(20 24 56 / 0.7);
+		background: rgba(20, 24, 56, 0.85);
 		color: #e8ecff;
+		border-color: rgba(255, 255, 255, 0.4);
+		box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4);
 	}
 	.gear {
 		width: 2.6rem;
 		height: 2.6rem;
-		border: 3px solid #363a3c;
-		border-radius: 0.7rem;
+		border: 2px solid #363a3c;
+		border-radius: 0.75rem;
 		box-shadow: 0 3px 0 #363a3c;
 		background: #fffaf0;
 		color: #363a3c;
-		font-size: 1.3rem;
+		font-size: 1.25rem;
 		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		transition: transform 0.1s, background 0.15s;
+	}
+	.gear:hover {
+		background: #ffffff;
+		transform: translateY(-2px);
 	}
 	.prompt {
 		position: absolute;
 		left: 50%;
-		bottom: 2rem;
+		bottom: 4.8rem;
 		transform: translateX(-50%);
-		padding: 0.5rem 1rem;
+		padding: 0.6rem 1.2rem;
 		border-radius: 999px;
 		background: rgb(54 58 60 / 0.85);
 		color: white;
+	}
+	.thar-bubble {
+		position: absolute;
+		left: 50%;
+		top: 4.8rem;
+		transform: translateX(-50%);
+		padding: 0.65rem 1.25rem;
+		background: #fff7ed;
+		border: 2px solid #ea580c;
+		border-radius: 999px;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+		color: #9a3412;
+		font-weight: 700;
+		font-size: 0.95rem;
+		pointer-events: none;
+		z-index: 55;
 	}
 	kbd {
 		padding: 0 0.35rem;
