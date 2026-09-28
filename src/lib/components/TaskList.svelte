@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { quests, activeQuests, toasts } from '$lib/game/questManager';
-	import { INITIAL_QUESTS } from '$lib/game/questRegistry';
 	import { slide, fade } from 'svelte/transition';
 
 	// Open checklist initially or when user toggles
@@ -14,13 +13,6 @@
 	function toggleExpand(id: string) {
 		expandedQuestId = expandedQuestId === id ? null : id;
 	}
-
-	// Read all quests from store
-	let allQuests = $derived.by(() => {
-		let list = INITIAL_QUESTS;
-		quests.subscribe((val) => (list = val))();
-		return list;
-	});
 </script>
 
 <!-- Toasts overlay -->
@@ -64,17 +56,17 @@
 		transition:fade={{ duration: 150 }}
 		onclick={toggleOpen}
 		onkeydown={(e) => { if (e.key === 'Escape') toggleOpen(); }}
-		role="dialog"
-		aria-modal="true"
-		tabindex="-1"
+		role="presentation"
 	>
 		<div
 			class="checklist-paper"
 			transition:slide={{ duration: 250 }}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
-			role="document"
+			role="dialog"
+			aria-modal="true"
 			aria-label="Quest Checklist"
+			tabindex="-1"
 		>
 			<div class="paper-pin"></div>
 			<div class="paper-header">
@@ -83,16 +75,25 @@
 			</div>
 
 			<div class="quest-lines">
-				{#each allQuests as q, idx (q.id)}
+				{#each $quests as q, idx (q.id)}
 					{@const doneCount = q.tasks.filter((t) => t.done).length}
 					{@const totalCount = q.tasks.length}
 					{@const isFinished = doneCount === totalCount}
 					<div class="quest-item" class:completed={isFinished}>
 						<button class="quest-row-btn" onclick={() => toggleExpand(q.id)}>
-							<div class="quest-line-text" class:crossed-out={isFinished}>
-								<span class="num">{idx + 1}.</span>
-								<span class="title">{q.title}</span>
-								<span class="progress">({doneCount}/{totalCount})</span>
+							<div class="quest-row-left">
+								<div class="quest-checkbox" class:checked={isFinished}>
+									{#if isFinished}
+										<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#ffffff" stroke-width="4">
+											<polyline points="20 6 9 17 4 12" />
+										</svg>
+									{/if}
+								</div>
+								<div class="quest-line-text" class:crossed-out={isFinished}>
+									<span class="num">{idx + 1}.</span>
+									<span class="title">{q.title}</span>
+									<span class="progress">({doneCount}/{totalCount})</span>
+								</div>
 							</div>
 							<span class="expand-icon">{expandedQuestId === q.id ? '▴' : '▾'}</span>
 						</button>
@@ -103,7 +104,7 @@
 									<div class="subtask-row" class:done={t.done}>
 										<div class="paper-checkbox" class:checked={t.done}>
 											{#if t.done}
-												<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3.5">
+												<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#ffffff" stroke-width="3.5">
 													<polyline points="20 6 9 17 4 12" />
 												</svg>
 											{/if}
@@ -322,8 +323,28 @@
 		transition: background 0.15s;
 	}
 
-	.quest-row-btn:hover {
-		background: rgba(241, 245, 249, 0.6);
+	.quest-row-left {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+	}
+
+	.quest-checkbox {
+		width: 17px;
+		height: 17px;
+		border: 2px solid #334155;
+		border-radius: 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #ffffff;
+		flex-shrink: 0;
+		transition: background 0.2s, border-color 0.2s;
+	}
+
+	.quest-checkbox.checked {
+		background: #16a34a;
+		border-color: #15803d;
 	}
 
 	.quest-line-text {

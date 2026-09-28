@@ -74,8 +74,9 @@ export class Layout {
 		depth: number,
 		height?: number
 	): void {
+		// Add 0.65m spacing buffer around reserved footprint so no two buildings ever touch or clip
 		for (const c of this.boxCircles(up, forward, width, depth)) {
-			this.reserve(c.dir, c.radius, true, c.radius * 1.02);
+			this.reserve(c.dir, c.radius + 0.65, true, c.radius * 1.02);
 			if (height) this.colliders[this.colliders.length - 1].height = height;
 		}
 	}

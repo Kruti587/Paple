@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createNpcCharacter, createPlayer, animateCharacter, type Character } from './characters';
-import { FOOTPATH_WIDTH, PALETTE, ROAD_HALF_WIDTH } from './constants';
+import { FOOTPATH_WIDTH, PALETTE, ROAD_HALF_WIDTH, PLANET_RADIUS } from './constants';
 import type { MoveInput } from './input';
 import { Layout } from './layout';
 import { disposeMaterials, toon } from './materials';
@@ -86,8 +86,9 @@ export interface World {
 	/** NPC within talking distance of the player, if any. */
 	nearbyNpc(): string | null;
 	currentZone(): Zone | null;
-	canInteractItem(): { type: 'veena' | 'veena_deliver' | 'strut' | 'relic' | 'flint' | 'ufo'; prompt: string } | null;
+	canInteractItem(): { type: string; prompt: string } | null;
 	interactItem(): void;
+	nearbySpeech(camera: THREE.Camera): { name: string; text: string; x: number; y: number } | null;
 	tharChatter(): string | null;
 	dispose(): void;
 }
@@ -327,58 +328,160 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	let tharCrash: TharCrashEvent | null = null;
 	let hasVeena = false;
 	let hasDeliveredVeena = false;
+	let hasChai = false;
+	let deliveredChai = false;
 	let hasStrut = false;
 	let hasSunkenRelic = false;
+	let turnedSluice = false;
 	let hasFlint = false;
+	let hasLitFire = false;
 	let inspectedUfo = false;
+	let repairedUfo = false;
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// 1. ULSOOR LAKE & PIER (Roadside beside cross road at u=0.14)
+	// 1. ULSOOR LAKE & PIER (Set far back from road curb: offset = 8.2m)
 	// ═════════════════════════════════════════════════════════════════════════
-	const lakeFrame = crossRoad.frameAt(0.14, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 4.2));
+	const lakeFrame = crossRoad.frameAt(0.14, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 8.2));
 	const lakeDir = lakeFrame.up;
-	const lakeApproach = crossRoad.frameAt(0.14, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1.2)).up;
+	const lakeApproach = crossRoad.frameAt(0.14, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 3.8)).up;
 	// Clear the approach from the road to the water so no buildings block access
-	layout.reserve(lakeApproach, 2.6, false);
+	layout.reserve(lakeApproach, 3.2, false);
 
-	patches.push({ dir: lakeDir, radius: 5.6, color: PALETTE.sand });
-	staticRoot.add(sphereCap(lakeDir, 4.4, 0.03, toon(PALETTE.water), 40));
-	staticRoot.add(sphereCap(lakeDir, 2.6, 0.035, toon(PALETTE.waterLight), 32));
-	for (let i = 0; i < 9; i++) {
-		const t = anyTangent(lakeDir).applyAxisAngle(lakeDir, rand() * Math.PI * 2);
-		const p = stepAlong(lakeDir, t, range(rand, 1.2, 3.8));
-		const pad = new THREE.Group();
-		const leaf = blob(pad, 0.3, '#5d9a4a', 0, 0, 0);
-		leaf.scale.y = 0.08;
-		if (rand() < 0.5) sphere(pad, 0.09, '#f3a3c0', 0, 0.06, 0, 6);
-		addStatic(pad, p, t, 0.05);
+	// Sandy bank around lake
+	patches.push({ dir: lakeDir, radius: 6.2, color: PALETTE.sand });
+
+	// Connecting stone pathway from road footpath to the wooden pier
+	for (let st = 0; st < 6; st++) {
+		const stepPos = crossRoad.frameAt(0.14, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 0.6 + st * 0.65)).up;
+		const stepTile = new THREE.Group();
+		box(stepTile, 1.4, 0.05, 0.55, '#94a3b8', 0, 0.02, 0);
+		addStatic(stepTile, stepPos, lakeFrame.forward, 0.01);
 	}
 
-	// Wooden pier/deck extending from the footpath onto the lake
+	// ── DYNAMIC 3D UNDULATING WATER SURFACE FOR ULSOOR LAKE ─────────────────
+	const waterRadius = 4.6;
+	const waterGeo = new THREE.SphereGeometry(
+		PLANET_RADIUS + 0.04,
+		48,
+		24,
+		0,
+		Math.PI * 2,
+		0,
+		waterRadius / PLANET_RADIUS
+	);
+	const baseWaterPos = waterGeo.attributes.position.clone();
+	const waterMat = new THREE.MeshStandardMaterial({
+		color: '#22d3ee',
+		roughness: 0.12,
+		metalness: 0.22,
+		transparent: true,
+		opacity: 0.85,
+		depthWrite: false
+	});
+	const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+	waterMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), lakeDir);
+	scene.add(waterMesh);
+
+	// Deeper blue sub-surface water depth
+	const deepWaterMesh = sphereCap(lakeDir, 3.2, 0.02, toon(PALETTE.waterLight), 32);
+	scene.add(deepWaterMesh);
+
+	// Concentric animated water ripples
+	const rippleRings: THREE.Mesh[] = [];
+	const rippleMats: THREE.MeshBasicMaterial[] = [];
+	for (let r = 0; r < 3; r++) {
+		const ringMat = new THREE.MeshBasicMaterial({
+			color: '#e0f2fe',
+			transparent: true,
+			opacity: 0.5,
+			side: THREE.DoubleSide
+		});
+		const ringMesh = new THREE.Mesh(new THREE.RingGeometry(0.8, 0.95, 32), ringMat);
+		ringMesh.rotation.x = Math.PI / 2;
+		const ringPivot = new THREE.Group();
+		ringPivot.add(ringMesh);
+		placeOnSurface(ringPivot, lakeDir, anyTangent(lakeDir), 0.07);
+		scene.add(ringPivot);
+		rippleRings.push(ringMesh);
+		rippleMats.push(ringMat);
+	}
+
+	// Floating 3D lily pads with blooming lotus flowers that bob on waves
+	interface LilyPad {
+		group: THREE.Group;
+		baseY: number;
+		phase: number;
+	}
+	const lilyPads: LilyPad[] = [];
+	for (let i = 0; i < 11; i++) {
+		const t = anyTangent(lakeDir).applyAxisAngle(lakeDir, rand() * Math.PI * 2);
+		const p = stepAlong(lakeDir, t, range(rand, 1.1, 3.8));
+		const pad = new THREE.Group();
+		const leaf = blob(pad, 0.35, '#5d9a4a', 0, 0, 0);
+		leaf.scale.y = 0.08;
+		if (rand() < 0.6) {
+			sphere(pad, 0.11, '#f3a3c0', 0, 0.08, 0, 6);
+			sphere(pad, 0.05, '#fef08a', 0, 0.12, 0, 6); // Lotus golden core
+		}
+		placeOnSurface(pad, p, t, 0.06);
+		scene.add(pad);
+		lilyPads.push({ group: pad, baseY: 0.06, phase: rand() * 10 });
+	}
+
+	// Wooden pier/deck extending from the bank onto the lake
 	const pier = new THREE.Group();
-	box(pier, 1.4, 0.12, 3.0, '#5c4028', 0, 0.22, 1.5);
-	for (const x of [-0.6, 0.6]) {
-		for (const z of [0.4, 1.6, 2.8]) {
-			cylinder(pier, 0.06, 0.06, 0.6, '#3e2718', x, -0.08, z, 6);
+	box(pier, 1.6, 0.14, 3.6, '#5c4028', 0, 0.22, 1.8);
+	for (const x of [-0.7, 0.7]) {
+		for (const z of [0.4, 1.6, 2.8, 3.4]) {
+			cylinder(pier, 0.07, 0.07, 0.6, '#3e2718', x, -0.08, z, 6);
 		}
 	}
-	sphere(pier, 0.08, '#ffcc44', -0.6, 0.48, 2.9, 6);
-	sphere(pier, 0.08, '#ffcc44', 0.6, 0.48, 2.9, 6);
+	// Pier lanterns
+	sphere(pier, 0.09, '#ffcc44', -0.7, 0.52, 3.4, 6);
+	sphere(pier, 0.09, '#ffcc44',  0.7, 0.52, 3.4, 6);
+
+	// Brass Sluice Wheel on the pier!
+	const wheelGroup = new THREE.Group();
+	wheelGroup.position.set(0, 0.65, 3.2);
+	cylinder(wheelGroup, 0.04, 0.04, 0.6, '#78350f', 0, -0.15, 0, 6); // stand
+	const sluiceWheelMesh = cylinder(wheelGroup, 0.28, 0.28, 0.05, '#f59e0b', 0, 0.15, 0, 12); // brass wheel
+	for (let sp = 0; sp < 4; sp++) {
+		const sa = (sp / 4) * Math.PI;
+		box(wheelGroup, 0.54, 0.03, 0.04, '#b45309', 0, 0.15, 0).rotation.y = sa;
+	}
+	pier.add(wheelGroup);
 	addStatic(pier, lakeApproach, lakeFrame.right.clone().multiplyScalar(-1));
 
 	// Glowing Sunken Lotus Relic resting on the lake bed
 	const relicPos = stepAlong(lakeDir, anyTangent(lakeDir), 1.8);
 	const relicGroup = new THREE.Group();
-	sphere(relicGroup, 0.18, '#ffd700', 0, 0.1, 0, 8); // Gold relic
-	sphere(relicGroup, 0.32, '#00ffff', 0, 0.1, 0, 8).scale.y = 0.4; // Glowing cyan aqua aura
-	for (let p = 0; p < 6; p++) {
-		const angle = (p / 6) * Math.PI * 2;
-		box(relicGroup, 0.08, 0.04, 0.22, '#ff66aa', Math.sin(angle) * 0.2, 0.1, Math.cos(angle) * 0.2);
+	sphere(relicGroup, 0.22, '#ffd700', 0, 0.12, 0, 8); // Gold relic
+	sphere(relicGroup, 0.38, '#00ffff', 0, 0.12, 0, 8).scale.y = 0.4; // Glowing cyan aqua aura
+	for (let p = 0; p < 8; p++) {
+		const angle = (p / 8) * Math.PI * 2;
+		box(relicGroup, 0.09, 0.05, 0.25, '#ff66aa', Math.sin(angle) * 0.24, 0.12, Math.cos(angle) * 0.24);
 	}
-	addStatic(relicGroup, relicPos, anyTangent(relicPos), 0.05);
+	placeOnSurface(relicGroup, relicPos, anyTangent(relicPos), 0.02);
+	scene.add(relicGroup);
+
+	// Shimmering rising bubble particles from Sunken Relic
+	const bubbles: { mesh: THREE.Mesh; p: THREE.Vector3; speed: number; y: number }[] = [];
+	for (let b = 0; b < 6; b++) {
+		const bMesh = sphere(new THREE.Group(), 0.04, '#a5f3fc', 0, 0, 0, 6);
+		const bMat = (bMesh as THREE.Mesh).material as THREE.MeshStandardMaterial;
+		bMat.transparent = true;
+		bMat.opacity = 0.75;
+		scene.add(bMesh);
+		bubbles.push({
+			mesh: bMesh,
+			p: relicPos,
+			speed: 0.15 + rand() * 0.25,
+			y: rand() * 0.4
+		});
+	}
 
 	// Lake is reserved as non-solid (solid: false) so player can wade in without bouncing out!
-	layout.reserve(lakeDir, 5.0, false);
+	layout.reserve(lakeDir, 5.2, false);
 
 	// ═════════════════════════════════════════════════════════════════════════
 	// 2. CUBBON PARK & UFO CRASH (Roadside beside main road at u=0.88)
@@ -544,19 +647,19 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 							layout.reserve(f.up, 0.5, false);
 						}
 					}
-					// Tight spacing — Bangalore houses share walls
-					u += (house.width + range(rand, 0.05, 0.3)) / road.length;
+					// Generous spacing — ensuring buildings have distinct alleys and never touch
+					u += (house.width + range(rand, 0.95, 1.75)) / road.length;
 				} else {
-					// Rare gap (narrow alley between buildings)
-					u += 1.2 / road.length;
+					// Open alleyway gap
+					u += 2.2 / road.length;
 				}
 			}
-			// Back row behind the roadside houses, across a narrow service lane.
+			// Back row behind roadside houses with wide spacing
 			u = rand() * 0.01;
 			while (u < 1) {
 				const house = randomBuilding();
-				placeBuilding(house, road, u, side, range(rand, 5.2, 5.8));
-				u += (house.width + range(rand, 0.05, 0.3)) / road.length;
+				placeBuilding(house, road, u, side, range(rand, 5.4, 6.2));
+				u += (house.width + range(rand, 1.2, 2.2)) / road.length;
 			}
 		}
 	}
@@ -569,7 +672,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		dir: THREE.Vector3,
 		facing: THREE.Vector3
 	): boolean => {
-		if (!layout.boxIsFree(dir, facing, b.width, b.depth, FOOTPATH_WIDTH)) return false;
+		if (!layout.boxIsFree(dir, facing, b.width + 0.8, b.depth + 0.8, FOOTPATH_WIDTH)) return false;
 		const height = buildingHeight(b); // measure before it's moved onto the planet
 		addStatic(b.group, dir, facing);
 		layout.reserveBox(dir, facing, b.width, b.depth, height);
@@ -956,6 +1059,46 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			tharCrash?.update(elapsed, dt);
 			playerVeena.visible = hasVeena && !hasDeliveredVeena;
 			musicianVeena.visible = hasDeliveredVeena;
+
+			// ── DYNAMIC 3D WATER WAVE VERTEX DISPLACEMENT ──
+			if (waterGeo && baseWaterPos) {
+				const pos = waterGeo.attributes.position;
+				for (let i = 0; i < pos.count; i++) {
+					const bx = baseWaterPos.getX(i);
+					const by = baseWaterPos.getY(i);
+					const bz = baseWaterPos.getZ(i);
+					const r = Math.sqrt(bx * bx + bz * bz);
+					const angle = Math.atan2(bz, bx);
+					const wave = Math.sin(elapsed * 2.8 + r * 3.5) * 0.05 + Math.cos(elapsed * 1.8 + angle * 3.0) * 0.025;
+					const taper = Math.max(0, 1 - r / waterRadius);
+					pos.setXYZ(i, bx, by + wave * taper, bz);
+				}
+				pos.needsUpdate = true;
+				waterGeo.computeVertexNormals();
+			}
+
+			// Ripple rings expanding
+			for (let r = 0; r < rippleRings.length; r++) {
+				const phase = (elapsed * 0.45 + r * 0.33) % 1;
+				rippleRings[r].scale.setScalar(0.4 + phase * 3.6);
+				rippleMats[r].opacity = (1 - phase) * 0.55;
+			}
+
+			// Lily pads bobbing with waves
+			for (const pad of lilyPads) {
+				pad.group.position.y = pad.baseY + Math.sin(elapsed * 2.5 + pad.phase) * 0.035;
+			}
+
+			// Rising bubbles from sunken relic
+			for (const b of bubbles) {
+				b.y = (b.y + dt * b.speed) % 0.45;
+				placeOnSurface(b.mesh, b.p, anyTangent(b.p), b.y);
+			}
+
+			// Sluice wheel turning
+			if (turnedSluice) {
+				wheelGroup.rotation.y += dt * 2.5;
+			}
 		},
 		hour: () => currentHour,
 		skipHours(hours) {
@@ -996,7 +1139,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 				{ id: 'temple', label: 'Sri Ganesha Temple', dir: gopuramDir, radius: 5.5 },
 				{ id: 'hotel', label: 'Ramesh Grand Hotel', dir: hotelDir, radius: 5.0 },
 				{ id: 'park', label: 'Cubbon Park & UFO Crash', dir: parkDir ?? junction.clone().normalize(), radius: 6.0 },
-				{ id: 'lake', label: 'Ulsoor Lake', dir: lakeDir ?? junction.clone().normalize(), radius: 6.0 },
+				{ id: 'lake', label: 'Ulsoor Lake & Pier', dir: lakeDir ?? junction.clone().normalize(), radius: 6.0 },
 				{ id: 'boulders', label: 'Precambrian Boulders', dir: boulderDir ?? junction.clone().normalize(), radius: 5.0 },
 				{ id: 'museum', label: 'Karnataka Science Museum', dir: museumDir, radius: 6.0 },
 				{ id: 'glasshouse', label: 'Lalbagh Glass House', dir: glassHouseDir, radius: 6.0 },
@@ -1015,17 +1158,32 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			if (hasVeena && !hasDeliveredVeena && surfaceDistance(player.up, crossRoad.frameAt(0.68).up) < 3.2) {
 				return { type: 'veena_deliver' as const, prompt: 'Press [E] to present the Divine Veena to Vidwan Sundaram' };
 			}
-			if (!hasStrut && surfaceDistance(player.up, museumDir) < 3.5) {
+			if (!hasChai && surfaceDistance(player.up, hotelDir) < 3.2) {
+				return { type: 'chai_flask' as const, prompt: 'Press [E] to pick up Insulated Chai Flask' };
+			}
+			if (hasChai && !deliveredChai && surfaceDistance(player.up, gopuramDir) < 3.5) {
+				return { type: 'chai_deliver' as const, prompt: 'Press [E] to deliver hot filter coffee to the Temple' };
+			}
+			if (!hasStrut && surfaceDistance(player.up, museumDir) < 4.2) {
 				return { type: 'strut' as const, prompt: 'Press [E] to acquire the Quantum Titanium Strut' };
 			}
-			if (!hasSunkenRelic && surfaceDistance(player.up, lakeDir) < 3.8) {
+			if (!hasSunkenRelic && surfaceDistance(player.up, lakeDir) < 4.5) {
 				return { type: 'relic' as const, prompt: 'Press [E] to retrieve the Sunken Lotus Relic' };
+			}
+			if (!turnedSluice && surfaceDistance(player.up, lakeApproach) < 3.0) {
+				return { type: 'sluice' as const, prompt: 'Press [E] to turn the Ancient Sluice Wheel' };
 			}
 			if (!hasFlint && surfaceDistance(player.up, boulderDir) < 3.2) {
 				return { type: 'flint' as const, prompt: 'Press [E] to gather Primordial Flint' };
 			}
+			if (hasFlint && !hasLitFire && surfaceDistance(player.up, boulderDir) < 3.2) {
+				return { type: 'campfire' as const, prompt: 'Press [E] to strike flint and kindle the Sacred Bonfire' };
+			}
 			if (!inspectedUfo && surfaceDistance(player.up, parkDir) < 3.8) {
 				return { type: 'ufo' as const, prompt: 'Press [E] to inspect the damaged Flying Saucer' };
+			}
+			if (hasStrut && !repairedUfo && surfaceDistance(player.up, parkDir) < 3.8) {
+				return { type: 'ufo_repair' as const, prompt: 'Press [E] to install Titanium Strut into Flying Saucer' };
 			}
 			return null;
 		},
@@ -1044,20 +1202,145 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 				playerVeena.visible = false;
 				musicianVeena.visible = true;
 				quests.completeTask('musician_veena', 'deliver_veena');
+			} else if (item.type === 'chai_flask') {
+				hasChai = true;
+				quests.completeTask('chef_chai_rush', 'take_thermos');
+			} else if (item.type === 'chai_deliver') {
+				deliveredChai = true;
+				quests.completeTask('chef_chai_rush', 'deliver_temple');
 			} else if (item.type === 'strut') {
 				hasStrut = true;
 				quests.completeTask('alien_ufo_repair', 'steal_strut');
 			} else if (item.type === 'relic') {
 				hasSunkenRelic = true;
+				relicGroup.visible = false;
 				quests.completeTask('mani_lake_revival', 'clear_debris');
+			} else if (item.type === 'sluice') {
+				turnedSluice = true;
+				quests.completeTask('mani_lake_revival', 'open_sluice');
 			} else if (item.type === 'flint') {
 				hasFlint = true;
 				quests.completeTask('grog_ancient_spark', 'find_flint');
+			} else if (item.type === 'campfire') {
+				hasLitFire = true;
+				quests.completeTask('grog_ancient_spark', 'light_fire');
 			} else if (item.type === 'ufo') {
 				inspectedUfo = true;
 				quests.completeTask('alien_ufo_repair', 'inspect_ufo');
+			} else if (item.type === 'ufo_repair') {
+				repairedUfo = true;
+				quests.completeTask('alien_ufo_repair', 'repair_ufo');
 			}
 		},
+		nearbySpeech(camera: THREE.Camera): { name: string; text: string; x: number; y: number } | null {
+			interface SpeechSource {
+				name: string;
+				dir: THREE.Vector3;
+				height: number;
+				lines: string[];
+			}
+			const speechSources: SpeechSource[] = [
+				{
+					name: 'Vidwan Sundaram',
+					dir: crossRoad.frameAt(0.68, ROAD_HALF_WIDTH + FOOTPATH_WIDTH * 0.5).up,
+					height: 1.5,
+					lines: [
+						'Namaskara! The Veena’s resonance purifies the soul of Bangalore.',
+						'Ah, the strings whisper ancient ragas of Mysore...',
+						'Carnatic melody brings calm to this bustling garden city.'
+					]
+				},
+				{
+					name: 'Chef Ramesh',
+					dir: hotelDir,
+					height: 1.5,
+					lines: [
+						'Bisi bisi filter coffee ready, saar! Two by three?',
+						'Quick quick! Bangalore traffic waits for no hot chai!',
+						'Taste our crispy Benne Masala Dosa! Melt-in-mouth!'
+					]
+				},
+				{
+					name: 'Captain Mani',
+					dir: lakeApproach,
+					height: 1.5,
+					lines: [
+						'Ulsoor Lake holds ancient relics in its tranquil depths!',
+						'Watch your step by the wooden pier! The water is deep today!',
+						'The golden lotus blossoms are opening... pristine and pure!'
+					]
+				},
+				{
+					name: 'Zylar-9 (Alien)',
+					dir: parkDir,
+					height: 1.5,
+					lines: [
+						'Beep-boop! My hyperdrive core fell into the science museum!',
+						'Earthling! Your city has so many two-wheeled speed pods!',
+						'Cubbon Park trees remind me of Nebula Sector 9...'
+					]
+				},
+				{
+					name: 'Grog the Ancient',
+					dir: boulderDir,
+					height: 1.5,
+					lines: [
+						'Oog make big fire! Spark from black flint rock!',
+						'Ugh! Strange roaring metal beasts on black paths!',
+						'Fire warm! Oog like this green planet!'
+					]
+				},
+				{
+					name: 'Bangalore Uncle',
+					dir: mainRoad.frameAt(0.58, 1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1.2)).up,
+					height: 1.5,
+					lines: [
+						'Aiyyo! Look what happened to this Thar da!',
+						'Directly hit the electric pole macha! Bescom will take two days!',
+						'Bro took off-roading too seriously on 100 Feet Road!'
+					]
+				},
+				{
+					name: 'Museum Curator',
+					dir: museumDir,
+					height: 1.6,
+					lines: [
+						'Welcome to the Science Museum! Look inside at our ISRO exhibits!',
+						'The glowing Quantum Titanium Strut is our prized centerpiece!',
+						'Chandrayaan’s lunar rover diorama is on display inside!'
+					]
+				},
+				{
+					name: 'Palace Guide',
+					dir: palaceDir,
+					height: 1.6,
+					lines: [
+						'Welcome to Bangalore Palace! Built in authentic Tudor-Gothic style!',
+						'Notice the fortified towers and crenellated battlements!',
+						'Keep your camera ready for the royal forecourt!'
+					]
+				}
+			];
+
+			let closest: SpeechSource | null = null;
+			let closestDist = 5.6;
+			for (const s of speechSources) {
+				const d = surfaceDistance(player.up, s.dir);
+				if (d < closestDist) {
+					closestDist = d;
+					closest = s;
+				}
+			}
+			if (!closest) return null;
+			const headWorld = closest.dir.clone().multiplyScalar(PLANET_RADIUS + closest.height);
+			const proj = headWorld.clone().project(camera);
+			if (proj.z <= 0 || proj.z >= 1.0) return null;
+			const x = (proj.x * 0.5 + 0.5) * 100;
+			const y = (-proj.y * 0.5 + 0.5) * 100;
+			const lineIdx = Math.floor(lastElapsed / 5.5) % closest.lines.length;
+			return { name: closest.name, text: closest.lines[lineIdx], x, y };
+		},
+
 		tharChatter(): string | null {
 			return tharCrash ? tharCrash.getChatter(player.position) : null;
 		},

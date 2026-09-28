@@ -52,6 +52,7 @@
 	let currentZoneLabel = $state('');
 	let itemPrompt = $state<string | null>(null);
 	let tharChatter = $state<string | null>(null);
+	let speechBubble = $state<{ name: string; text: string; x: number; y: number } | null>(null);
 
 	// --- NPC dialogue ---
 	let activeNpcId = $state<string | null>(null);
@@ -247,6 +248,7 @@
 					currentZoneLabel = world.currentZone()?.label ?? '';
 					itemPrompt = world.canInteractItem()?.prompt ?? null;
 					tharChatter = world.tharChatter();
+					speechBubble = g.space === 'out' && world.nearbySpeech ? world.nearbySpeech(world.camera) : null;
 				}
 				const hour = world.hour();
 				const label = formatClock(hour);
@@ -317,6 +319,17 @@
 
 		{#if tharChatter}
 			<div class="thar-bubble">{tharChatter}</div>
+		{/if}
+
+		{#if speechBubble && !activeNpcId}
+			<div
+				class="comic-speech-bubble"
+				style="left: {speechBubble.x}%; top: {speechBubble.y}%;"
+			>
+				<div class="speech-speaker">{speechBubble.name}</div>
+				<div class="speech-text">{speechBubble.text}</div>
+				<div class="speech-tail"></div>
+			</div>
 		{/if}
 	{/if}
 
@@ -469,5 +482,65 @@
 		background: white;
 		color: #363a3c;
 		font-family: inherit;
+	}
+	.comic-speech-bubble {
+		position: absolute;
+		transform: translate(-50%, -100%) translateY(-22px);
+		background: #ffffff;
+		border: 2.5px solid #23272a;
+		border-radius: 16px;
+		padding: 0.6rem 0.95rem;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.12);
+		max-width: 240px;
+		text-align: center;
+		pointer-events: none;
+		z-index: 55;
+		animation: speechPop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	}
+	@keyframes speechPop {
+		from {
+			opacity: 0;
+			transform: translate(-50%, -85%) translateY(-22px) scale(0.85);
+		}
+		to {
+			opacity: 1;
+			transform: translate(-50%, -100%) translateY(-22px) scale(1);
+		}
+	}
+	.speech-speaker {
+		font-size: 0.72rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: #e11d48;
+		margin-bottom: 0.2rem;
+	}
+	.speech-text {
+		font-size: 0.90rem;
+		font-weight: 700;
+		line-height: 1.35;
+		color: #1e293b;
+	}
+	.speech-tail {
+		position: absolute;
+		bottom: -11px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 0;
+		height: 0;
+		border-left: 9px solid transparent;
+		border-right: 9px solid transparent;
+		border-top: 11px solid #23272a;
+	}
+	.speech-tail::after {
+		content: '';
+		position: absolute;
+		bottom: 2.5px;
+		left: -7px;
+		width: 0;
+		height: 0;
+		border-left: 7px solid transparent;
+		border-right: 7px solid transparent;
+		border-top: 9px solid #ffffff;
 	}
 </style>

@@ -1,5 +1,5 @@
-/** 50 m diameter planet. All world units are metres. */
-export const PLANET_RADIUS = 25;
+/** 76 m diameter planet. All world units are metres. Expansive curvature. */
+export const PLANET_RADIUS = 38;
 
 export const ROAD_HALF_WIDTH = 1.7;
 /** Red-earth shoulder / footpath beyond the kerb. */

@@ -760,13 +760,13 @@ export function createVeenaModel(): THREE.Group {
 }
 
 /** Helper to add a tourist NPC figure taking a photo with a camera. */
-function addTourist(parent: THREE.Object3D, x: number, z: number, facingAngle = 0) {
+function addTourist(parent: THREE.Object3D, x: number, z: number, facingAngle = 0, y = 0) {
 	const t = new THREE.Group();
-	t.position.set(x, 0, z);
+	t.position.set(x, y, z);
 	t.rotation.y = facingAngle;
 
-	// Body & legs
-	cylinder(t, 0.16, 0.18, 0.65, '#2563eb', 0, 0.32, 0, 8); // pants
+	// Body & legs (length 0.65, centered at 0.325, so bottom touches y=0)
+	cylinder(t, 0.16, 0.18, 0.65, '#2563eb', 0, 0.325, 0, 8); // pants
 	cylinder(t, 0.20, 0.22, 0.70, '#f97316', 0, 0.95, 0, 8); // shirt
 	// Head
 	sphere(t, 0.16, '#c68642', 0, 1.45, 0, 8);
@@ -838,49 +838,152 @@ export function createHotel(rand: () => number): Building {
 	return { group: g, width: 7.8, depth: 6.2 };
 }
 
-/** 🏛️ Karnataka Rajya Vijnana Mandir (Science Museum) — Home of the Titanium Strut */
+/** 🏛️ Karnataka Rajya Vijnana Mandir (Science Museum) — Open Exhibition Hall with Quantum Titanium Strut */
 export function createMuseum(): Building {
 	const g = new THREE.Group();
-	const width = 9.2;
-	const depth = 6.8;
+	const width = 9.8;
+	const depth = 7.4;
 
-	// Grand plinth steps
+	// Grand plinth steps leading up to museum entrance
 	for (let s = 0; s < 4; s++) {
-		box(g, width + 0.8 - s * 0.3, 0.15, depth + 1.2 - s * 0.3, PALETTE.stoneShade, 0, 0.075 + s * 0.15, 0.3 - s * 0.15);
+		box(g, width + 1.0 - s * 0.3, 0.15, depth + 1.4 - s * 0.3, PALETTE.stoneShade, 0, 0.075 + s * 0.15, 0.4 - s * 0.15);
 	}
 
 	const baseY = 0.6;
-	// Main museum hall building
-	box(g, width, 3.6, depth, '#f8fafc', 0, baseY + 1.8, -0.4);
+	// Polished museum interior floor
+	box(g, width - 0.4, 0.08, depth - 0.4, '#0f172a', 0, baseY + 0.04, -0.2);
+	// Outer marble walls: left, right, and back
+	box(g, 0.4, 3.8, depth, '#f8fafc', -width / 2 + 0.2, baseY + 1.9, -0.2); // Left wall
+	box(g, 0.4, 3.8, depth, '#f8fafc',  width / 2 - 0.2, baseY + 1.9, -0.2); // Right wall
+	box(g, width, 3.8, 0.4, '#e2e8f0', 0, baseY + 1.9, -0.2 - depth / 2 + 0.2); // Back wall
 
-	// Classical Neoclassical Portico: 6 grand fluted columns
+	// Grand vaulted museum ceiling & roof cornice
+	box(g, width + 0.4, 0.35, depth + 1.0, '#cbd5e1', 0, baseY + 3.8, -0.2);
+
+	// Classical Neoclassical Portico: 6 grand fluted columns along the front
 	for (let i = 0; i < 6; i++) {
-		const cx = (i - 2.5) * 1.55;
-		cylinder(g, 0.22, 0.26, 3.4, '#e2e8f0', cx, baseY + 1.7, depth / 2 - 0.2, 12);
+		const cx = (i - 2.5) * 1.65;
+		cylinder(g, 0.22, 0.26, 3.5, '#e2e8f0', cx, baseY + 1.75, depth / 2 + 0.1, 12);
 		// Corinthian-style capital & base
-		box(g, 0.6, 0.18, 0.6, '#cbd5e1', cx, baseY + 0.1, depth / 2 - 0.2);
-		box(g, 0.6, 0.20, 0.6, '#cbd5e1', cx, baseY + 3.4, depth / 2 - 0.2);
+		box(g, 0.65, 0.18, 0.65, '#cbd5e1', cx, baseY + 0.1, depth / 2 + 0.1);
+		box(g, 0.65, 0.20, 0.65, '#cbd5e1', cx, baseY + 3.5, depth / 2 + 0.1);
 	}
 
 	// Triangular Pediment over entrance
-	box(g, width + 0.4, 0.4, 1.4, '#e2e8f0', 0, baseY + 3.7, depth / 2 - 0.2);
-	// Signboard: "SCIENCE MUSEUM"
-	box(g, 5.0, 0.35, 0.1, '#1e3a8a', 0, baseY + 3.4, depth / 2 + 0.45);
-	box(g, 4.8, 0.25, 0.12, '#f8fafc', 0, baseY + 3.4, depth / 2 + 0.46);
+	box(g, width + 0.6, 0.45, 1.6, '#e2e8f0', 0, baseY + 3.85, depth / 2 + 0.1);
+	// Signboard: "VISVESVARAYA SCIENCE MUSEUM"
+	box(g, 6.2, 0.45, 0.12, '#1e3a8a', 0, baseY + 3.45, depth / 2 + 0.85);
+	box(g, 6.0, 0.32, 0.14, '#f8fafc', 0, baseY + 3.45, depth / 2 + 0.86);
 
-	// Glass showcase in the entrance hall exhibiting the QUANTUM TITANIUM STRUT!
-	box(g, 1.2, 0.8, 0.8, '#0f172a', 0, baseY + 0.4, depth / 2 - 1.6);
-	box(g, 1.1, 0.9, 0.7, '#38bdf8', 0, baseY + 1.25, depth / 2 - 1.6); // glass case
-	// The Glowing Quantum Titanium Strut artifact
-	cylinder(g, 0.06, 0.08, 0.65, '#22d3ee', 0, baseY + 1.25, depth / 2 - 1.6, 8);
-	sphere(g, 0.12, '#06b6d4', 0, baseY + 1.6, depth / 2 - 1.6, 8);
+	// ── FRONT FACADE: Crystal-clear panoramic glass windows & wide open portal ──
+	// Left & right panoramic glass display walls so the interior is 100% visible
+	const glassMat = new THREE.MeshStandardMaterial({
+		color: '#93c5fd',
+		transparent: true,
+		opacity: 0.28,
+		roughness: 0.05,
+		metalness: 0.15
+	});
+	// Left display glass
+	const glassL = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.2, 0.08), glassMat);
+	glassL.position.set(-width / 2 + 1.5, baseY + 1.65, depth / 2 - 0.4);
+	g.add(glassL);
+	box(g, 2.5, 0.1, 0.14, '#334155', -width / 2 + 1.5, baseY + 3.25, depth / 2 - 0.4);
+	// Right display glass
+	const glassR = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.2, 0.08), glassMat);
+	glassR.position.set(width / 2 - 1.5, baseY + 1.65, depth / 2 - 0.4);
+	g.add(glassR);
+	box(g, 2.5, 0.1, 0.14, '#334155', width / 2 - 1.5, baseY + 3.25, depth / 2 - 0.4);
+	// Central wide open arch portal (width 3.8m, height 3.3m) with gilded portal surround
+	box(g, 0.25, 3.4, 0.25, '#c29b38', -2.0, baseY + 1.7, depth / 2 - 0.4);
+	box(g, 0.25, 3.4, 0.25, '#c29b38',  2.0, baseY + 1.7, depth / 2 - 0.4);
+	box(g, 4.25, 0.25, 0.25, '#c29b38', 0, baseY + 3.35, depth / 2 - 0.4);
 
-	// Tourists outside taking photos of the grand museum!
-	addTourist(g, -3.2, depth / 2 + 0.8, 0.35);
-	addTourist(g,  3.2, depth / 2 + 0.8, -0.35);
+	// ── INSIDE EXHIBITION 1: THE QUANTUM TITANIUM STRUT (Focal Center) ─────────
+	// Central illuminated octagonal pedestal
+	cylinder(g, 0.95, 1.05, 0.55, '#0f172a', 0, baseY + 0.3, 0.4, 8);
+	cylinder(g, 0.98, 0.98, 0.08, '#f59e0b', 0, baseY + 0.6, 0.4, 8); // Gold trim ring
+	cylinder(g, 0.75, 0.75, 0.04, '#06b6d4', 0, baseY + 0.65, 0.4, 16); // Glowing cyan LED ring
 
-	return { group: g, width: 9.6, depth: 7.6, hollowFootprint: true };
+	// Glass security vitrine case
+	const caseGlass = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, 1.2), glassMat);
+	caseGlass.position.set(0, baseY + 1.35, 0.4);
+	g.add(caseGlass);
+	// Corner bronze frame posts of the display case
+	for (const cx of [-0.6, 0.6]) {
+		for (const cz of [-0.6, 0.6]) {
+			cylinder(g, 0.025, 0.025, 1.4, '#c29b38', cx, baseY + 1.35, 0.4 + cz, 6);
+		}
+	}
+
+	// 🛸 The Glowing Quantum Titanium Strut artifact
+	cylinder(g, 0.07, 0.09, 0.75, '#22d3ee', 0, baseY + 1.35, 0.4, 8);
+	sphere(g, 0.15, '#06b6d4', 0, baseY + 1.75, 0.4, 8);
+	sphere(g, 0.12, '#38bdf8', 0, baseY + 0.95, 0.4, 8);
+	// Kinetic energy rings spinning round the strut
+	const ring1 = cylinder(g, 0.24, 0.24, 0.03, '#a855f7', 0, baseY + 1.25, 0.4, 12);
+	ring1.rotation.x = 0.35;
+	const ring2 = cylinder(g, 0.28, 0.28, 0.03, '#38bdf8', 0, baseY + 1.45, 0.4, 12);
+	ring2.rotation.z = 0.4;
+	// Exhibit brass plaque in front of pedestal
+	box(g, 0.65, 0.18, 0.05, '#f59e0b', 0, baseY + 0.35, 1.45);
+
+	// ── INSIDE EXHIBITION 2: CHANDRAYAAN LUNAR LANDER DIORAMA (Left Wing) ──────
+	const dz = -1.2;
+	const lx = -2.8;
+	// Lunar regolith platform
+	box(g, 2.6, 0.25, 2.4, '#64748b', lx, baseY + 0.15, dz);
+	// Simulated moon craters on platform
+	cylinder(g, 0.4, 0.5, 0.06, '#475569', lx - 0.5, baseY + 0.28, dz + 0.4, 10);
+	cylinder(g, 0.25, 0.35, 0.06, '#475569', lx + 0.6, baseY + 0.28, dz - 0.4, 8);
+	// Gold foil Vikram lander body
+	box(g, 0.7, 0.55, 0.7, '#fbbf24', lx, baseY + 0.65, dz);
+	box(g, 0.5, 0.3, 0.5, '#f8fafc', lx, baseY + 1.05, dz);
+	cylinder(g, 0.1, 0.1, 0.25, '#38bdf8', lx, baseY + 1.25, dz, 6); // dish antenna
+	// Solar panel wings
+	box(g, 0.4, 0.6, 0.04, '#1e3a8a', lx - 0.55, baseY + 0.75, dz);
+	box(g, 0.4, 0.6, 0.04, '#1e3a8a', lx + 0.55, baseY + 0.75, dz);
+	// 4 landing leg struts
+	for (let leg = 0; leg < 4; leg++) {
+		const la = (leg / 4) * Math.PI * 2 + Math.PI / 4;
+		const legP = cylinder(g, 0.03, 0.03, 0.5, '#cbd5e1', lx + Math.cos(la) * 0.45, baseY + 0.35, dz + Math.sin(la) * 0.45, 6);
+		legP.rotation.z = Math.cos(la) * 0.35;
+		legP.rotation.x = Math.sin(la) * 0.35;
+	}
+	// Small Pragyan rover on ramp
+	box(g, 0.25, 0.12, 0.35, '#f8fafc', lx + 0.8, baseY + 0.32, dz + 0.5);
+
+	// ── INSIDE EXHIBITION 3: SPACE LAUNCH VEHICLE (Right Wing) ─────────────────
+	const rx = 2.8;
+	// Rocket launch stand
+	cylinder(g, 0.6, 0.7, 0.35, '#334155', rx, baseY + 0.2, dz, 10);
+	// Multi-stage SLV Rocket
+	cylinder(g, 0.3, 0.3, 1.6, '#f8fafc', rx, baseY + 1.15, dz, 12); // Stage 1
+	cylinder(g, 0.26, 0.28, 1.2, '#f8fafc', rx, baseY + 2.5, dz, 12); // Stage 2
+	cylinder(g, 0.02, 0.24, 0.6, '#ea580c', rx, baseY + 3.35, dz, 10); // Nose cone fairing
+	// 4 rocket booster fins
+	for (let f = 0; f < 4; f++) {
+		const fa = (f / 4) * Math.PI * 2;
+		box(g, 0.04, 0.4, 0.25, '#ea580c', rx + Math.cos(fa) * 0.38, baseY + 0.6, dz + Math.sin(fa) * 0.38);
+	}
+
+	// ── INSIDE LIGHTING & BANNERS ──────────────────────────────────────────────
+	// Museum overhead gallery spotlights shining down on exhibits
+	for (const spotX of [-2.8, 0, 2.8]) {
+		cylinder(g, 0.1, 0.14, 0.2, '#1e293b', spotX, baseY + 3.65, 0.2, 8);
+		sphere(g, 0.08, '#fef08a', spotX, baseY + 3.52, 0.2, 6); // warm spotlight bulb
+	}
+	// Museum exhibition banner along back wall
+	box(g, 5.5, 0.8, 0.08, '#1e3a8a', 0, baseY + 3.0, -0.2 - depth / 2 + 0.42);
+	box(g, 5.2, 0.6, 0.1, '#f8fafc', 0, baseY + 3.0, -0.2 - depth / 2 + 0.43);
+
+	// ── TOURISTS OUTSIDE (With feet touching steps perfectly!) ─────────────────
+	addTourist(g, -3.2, depth / 2 + 0.9, 0.35, baseY);
+	addTourist(g,  3.2, depth / 2 + 0.9, -0.35, baseY);
+
+	return { group: g, width: 10.2, depth: 8.2, hollowFootprint: true };
 }
+
 
 /** 🏰 Bangalore Palace (Tudor-Gothic Icon) with battlements & photo-taking tourists */
 export function createBangalorePalace(): Building {
