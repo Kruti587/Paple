@@ -44,6 +44,10 @@ export class PlayerController {
 		return this.character.group.position;
 	}
 
+	waterCenter: THREE.Vector3 | null = null;
+	waterRadius = 0;
+	inWater = false;
+
 	/** `dynamicColliders` are moving obstacles (vehicles) re-supplied every frame. */
 	update(dt: number, input: MoveInput, dynamicColliders: Circle[] = []): void {
 		const right = new THREE.Vector3().crossVectors(this.viewForward, this.up).normalize();
@@ -52,9 +56,17 @@ export class PlayerController {
 			.addScaledVector(right, input.x);
 		const moving = move.lengthSq() > 0.01;
 
+		this.inWater = !!(
+			this.waterCenter &&
+			this.waterRadius > 0 &&
+			this.up.distanceTo(this.waterCenter) < this.waterRadius / PLANET_RADIUS
+		);
+
 		if (moving) {
 			move.normalize();
-			const angle = ((input.run ? RUN_SPEED : WALK_SPEED) * dt) / PLANET_RADIUS;
+			const baseSpeed = input.run ? RUN_SPEED : WALK_SPEED;
+			const speed = this.inWater ? baseSpeed * 0.72 : baseSpeed;
+			const angle = (speed * dt) / PLANET_RADIUS;
 			this.up.multiplyScalar(Math.cos(angle)).addScaledVector(move, Math.sin(angle)).normalize();
 			this.resolveCollisions(this.colliders);
 			// Turn smoothly towards the direction of travel.
@@ -74,7 +86,8 @@ export class PlayerController {
 		this.walkPhase += dt * (input.run ? 14 : 10) * this.walkAmount;
 		animateCharacter(this.character, this.walkPhase, this.walkAmount);
 		const bob = Math.abs(Math.sin(this.walkPhase)) * 0.06 * this.walkAmount;
-		placeOnSurface(this.character.group, this.up, this.facing, bob);
+		const submergedOffset = this.inWater ? -0.38 : 0;
+		placeOnSurface(this.character.group, this.up, this.facing, bob + submergedOffset);
 	}
 
 	private resolveCollisions(colliders: Circle[]) {

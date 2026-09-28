@@ -40,7 +40,7 @@ import {
 	createWires
 } from './props/street';
 import { createTree, createTreeKatte, type TreeKind } from './props/trees';
-import { blob, pick, range, sphere } from './props/util';
+import { blob, box, cylinder, pick, range, sphere } from './props/util';
 import { createAuto, createCar, createScooter, type VehicleKind } from './props/vehicles';
 import { Traffic } from './traffic';
 import { buildRoadNetwork, Road, sphereCap } from './roads';
@@ -84,7 +84,7 @@ export interface World {
 	/** NPC within talking distance of the player, if any. */
 	nearbyNpc(): string | null;
 	currentZone(): Zone | null;
-	canInteractItem(): { type: 'veena' | 'strut'; prompt: string } | null;
+	canInteractItem(): { type: 'veena' | 'strut' | 'relic' | 'flint' | 'ufo'; prompt: string } | null;
 	interactItem(): void;
 	dispose(): void;
 }
@@ -319,85 +319,139 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	marker.group.visible = false;
 	scene.add(marker.group);
 
-	// Lake with a sandy bank, lily pads and lotus.
-	const lakeDir = layout.findSpot(new THREE.Vector3(0.3, 0.2, -1).normalize(), 5.2, 1.5);
-	if (lakeDir) {
-		patches.push({ dir: lakeDir, radius: 5.6, color: PALETTE.sand });
-		staticRoot.add(sphereCap(lakeDir, 4.4, 0.03, toon(PALETTE.water), 40));
-		staticRoot.add(sphereCap(lakeDir, 2.6, 0.035, toon(PALETTE.waterLight), 32));
-		for (let i = 0; i < 9; i++) {
-			const t = anyTangent(lakeDir).applyAxisAngle(lakeDir, rand() * Math.PI * 2);
-			const p = stepAlong(lakeDir, t, range(rand, 1.2, 3.8));
-			const pad = new THREE.Group();
-			const leaf = blob(pad, 0.3, '#5d9a4a', 0, 0, 0);
-			leaf.scale.y = 0.08;
-			if (rand() < 0.5) sphere(pad, 0.09, '#f3a3c0', 0, 0.06, 0, 6);
-			addStatic(pad, p, t, 0.05);
-		}
-		layout.reserve(lakeDir, 5.2, true, 4.3);
-	}
-
 	let ufo: BrokenUFO | null = null;
 	let wildlife: WildlifeSystem | null = null;
 	let hasVeena = false;
 	let hasStrut = false;
+	let hasSunkenRelic = false;
+	let hasFlint = false;
+	let inspectedUfo = false;
 
-	// Cubbon-park-style grove with benches.
-	const parkDir = layout.findSpot(new THREE.Vector3(-0.6, 0.7, 0.4).normalize(), 5, 1);
-	if (parkDir) {
-		patches.push({ dir: parkDir, radius: 5.5, color: PALETTE.grassDark });
-		for (let i = 0; i < 9; i++) {
-			const t = anyTangent(parkDir).applyAxisAngle(parkDir, (i / 9) * Math.PI * 2 + rand() * 0.4);
-			const p = stepAlong(parkDir, t, range(rand, 2.2, 4.8));
-			const tree = createTree(
-				pick(rand, ['rain', 'rain', 'tabebuia', 'jacaranda'] as TreeKind[]),
-				rand
-			);
-			if (!layout.isFree(p, tree.radius + 0.4)) continue;
-			addStatic(tree.group, p, t);
-			layout.reserve(p, tree.radius + 0.3);
-		}
-		for (let i = 0; i < 2; i++) {
-			const t = anyTangent(parkDir).applyAxisAngle(parkDir, i * Math.PI + 0.5);
-			const p = stepAlong(parkDir, t, 1.2);
-			addStatic(createBench(), p, t.clone().negate());
-			layout.reserve(p, 0.6);
-		}
+	// ═════════════════════════════════════════════════════════════════════════
+	// 1. ULSOOR LAKE & PIER (Roadside beside cross road at u=0.14)
+	// ═════════════════════════════════════════════════════════════════════════
+	const lakeFrame = crossRoad.frameAt(0.14, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 4.2));
+	const lakeDir = lakeFrame.up;
+	const lakeApproach = crossRoad.frameAt(0.14, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1.2)).up;
+	// Clear the approach from the road to the water so no buildings block access
+	layout.reserve(lakeApproach, 2.6, false);
 
-		// Broken UFO crash-landed in Cubbon Park
-		ufo = createBrokenUFO();
-		const ufoPos = stepAlong(parkDir, anyTangent(parkDir), 1.8);
-		placeOnSurface(ufo.group, ufoPos, anyTangent(ufoPos));
-		scene.add(ufo.group);
-		layout.reserve(ufoPos, 2.4, true);
-
-		// Ambient wildlife system (birds flying, butterflies fluttering, rabbits hopping)
-		wildlife = createWildlifeSystem(parkDir, lakeDir ?? undefined);
-		placeOnSurface(wildlife.group, parkDir, anyTangent(parkDir));
-		scene.add(wildlife.group);
+	patches.push({ dir: lakeDir, radius: 5.6, color: PALETTE.sand });
+	staticRoot.add(sphereCap(lakeDir, 4.4, 0.03, toon(PALETTE.water), 40));
+	staticRoot.add(sphereCap(lakeDir, 2.6, 0.035, toon(PALETTE.waterLight), 32));
+	for (let i = 0; i < 9; i++) {
+		const t = anyTangent(lakeDir).applyAxisAngle(lakeDir, rand() * Math.PI * 2);
+		const p = stepAlong(lakeDir, t, range(rand, 1.2, 3.8));
+		const pad = new THREE.Group();
+		const leaf = blob(pad, 0.3, '#5d9a4a', 0, 0, 0);
+		leaf.scale.y = 0.08;
+		if (rand() < 0.5) sphere(pad, 0.09, '#f3a3c0', 0, 0.06, 0, 6);
+		addStatic(pad, p, t, 0.05);
 	}
 
-	// Granite boulders — Bengaluru sits on some of the oldest rock on Earth.
-	let boulderDir: THREE.Vector3 | undefined;
-	for (let i = 0; i < 5; i++) {
-		const p = layout.randomFreeSpot(1.2, 1);
-		if (!p) continue;
-		boulderDir ??= p;
-		const rocks = new THREE.Group();
-		for (let k = 0; k < 3; k++) {
-			const r = blob(
-				rocks,
-				range(rand, 0.5, 1.0),
-				k % 2 ? '#a9a49a' : '#bdb7ab',
-				range(rand, -0.5, 0.5),
-				0.2 + k * 0.1,
-				range(rand, -0.5, 0.5)
-			);
-			r.scale.y = 0.7;
+	// Wooden pier/deck extending from the footpath onto the lake
+	const pier = new THREE.Group();
+	box(pier, 1.4, 0.12, 3.0, '#5c4028', 0, 0.22, 1.5);
+	for (const x of [-0.6, 0.6]) {
+		for (const z of [0.4, 1.6, 2.8]) {
+			cylinder(pier, 0.06, 0.06, 0.6, '#3e2718', x, -0.08, z, 6);
 		}
-		addStatic(rocks, p, anyTangent(p));
-		layout.reserve(p, 1.1);
 	}
+	sphere(pier, 0.08, '#ffcc44', -0.6, 0.48, 2.9, 6);
+	sphere(pier, 0.08, '#ffcc44', 0.6, 0.48, 2.9, 6);
+	addStatic(pier, lakeApproach, lakeFrame.right.clone().multiplyScalar(-1));
+
+	// Glowing Sunken Lotus Relic resting on the lake bed
+	const relicPos = stepAlong(lakeDir, anyTangent(lakeDir), 1.8);
+	const relicGroup = new THREE.Group();
+	sphere(relicGroup, 0.18, '#ffd700', 0, 0.1, 0, 8); // Gold relic
+	sphere(relicGroup, 0.32, '#00ffff', 0, 0.1, 0, 8).scale.y = 0.4; // Glowing cyan aqua aura
+	for (let p = 0; p < 6; p++) {
+		const angle = (p / 6) * Math.PI * 2;
+		box(relicGroup, 0.08, 0.04, 0.22, '#ff66aa', Math.sin(angle) * 0.2, 0.1, Math.cos(angle) * 0.2);
+	}
+	addStatic(relicGroup, relicPos, anyTangent(relicPos), 0.05);
+
+	// Lake is reserved as non-solid (solid: false) so player can wade in without bouncing out!
+	layout.reserve(lakeDir, 5.0, false);
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// 2. CUBBON PARK & UFO CRASH (Roadside beside main road at u=0.88)
+	// ═════════════════════════════════════════════════════════════════════════
+	const parkFrame = mainRoad.frameAt(0.88, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 4.5));
+	const parkDir = parkFrame.up;
+	const parkApproach = mainRoad.frameAt(0.88, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1.2)).up;
+	layout.reserve(parkApproach, 2.6, false);
+
+	patches.push({ dir: parkDir, radius: 5.5, color: PALETTE.grassDark });
+	for (let i = 0; i < 8; i++) {
+		const t = anyTangent(parkDir).applyAxisAngle(parkDir, (i / 8) * Math.PI * 2 + rand() * 0.4);
+		const p = stepAlong(parkDir, t, range(rand, 2.2, 4.8));
+		const tree = createTree(
+			pick(rand, ['rain', 'rain', 'tabebuia', 'jacaranda'] as TreeKind[]),
+			rand
+		);
+		if (!layout.isFree(p, tree.radius + 0.4)) continue;
+		addStatic(tree.group, p, t);
+		layout.reserve(p, tree.radius + 0.3);
+	}
+	for (let i = 0; i < 2; i++) {
+		const t = anyTangent(parkDir).applyAxisAngle(parkDir, i * Math.PI + 0.5);
+		const p = stepAlong(parkDir, t, 1.2);
+		addStatic(createBench(), p, t.clone().negate());
+		layout.reserve(p, 0.6);
+	}
+
+	// Grand entrance arch for Cubbon Park
+	const parkArch = new THREE.Group();
+	cylinder(parkArch, 0.14, 0.14, 3.2, '#2d5a27', -1.2, 1.6, 0, 8);
+	cylinder(parkArch, 0.14, 0.14, 3.2, '#2d5a27', 1.2, 1.6, 0, 8);
+	box(parkArch, 2.8, 0.4, 0.25, '#1e3f1a', 0, 3.1, 0);
+	box(parkArch, 2.4, 0.25, 0.08, '#ffd700', 0, 3.1, 0.15); // Golden plaque
+	addStatic(parkArch, parkApproach, parkFrame.right.clone().multiplyScalar(-1));
+
+	// Broken UFO crash-landed in Cubbon Park
+	ufo = createBrokenUFO();
+	const ufoPos = stepAlong(parkDir, parkFrame.right.clone().multiplyScalar(-1), 1.8);
+	placeOnSurface(ufo.group, ufoPos, anyTangent(ufoPos));
+	scene.add(ufo.group);
+
+	// Ambient wildlife system (birds flying, butterflies fluttering, rabbits hopping)
+	wildlife = createWildlifeSystem(parkDir, lakeDir);
+	placeOnSurface(wildlife.group, parkDir, anyTangent(parkDir));
+	scene.add(wildlife.group);
+
+	layout.reserve(parkDir, 5.0, false);
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// 3. PRECAMBRIAN BOULDERS & CAMPFIRE (Beside cross road at u=0.76)
+	// ═════════════════════════════════════════════════════════════════════════
+	const boulderFrame = crossRoad.frameAt(0.76, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 3.2));
+	const boulderDir = boulderFrame.up;
+	const boulderApproach = crossRoad.frameAt(0.76, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1.2)).up;
+	layout.reserve(boulderApproach, 2.2, false);
+
+	const rocks = new THREE.Group();
+	for (let k = 0; k < 5; k++) {
+		const r = blob(
+			rocks,
+			range(rand, 0.7, 1.3),
+			k % 2 ? '#a9a49a' : '#bdb7ab',
+			range(rand, -0.9, 0.9),
+			0.2 + k * 0.15,
+			range(rand, -0.9, 0.9)
+		);
+		r.scale.y = 0.7;
+	}
+	// Campfire
+	cylinder(rocks, 0.08, 0.08, 0.8, '#4a2e16', 0.2, 0.1, 0.4, 6).rotation.z = 0.5;
+	cylinder(rocks, 0.08, 0.08, 0.8, '#4a2e16', -0.2, 0.1, 0.4, 6).rotation.z = -0.5;
+	sphere(rocks, 0.2, '#ff4500', 0, 0.25, 0.4, 8);
+	sphere(rocks, 0.12, '#ffcc00', 0, 0.35, 0.4, 6);
+	// Primordial sharp flint stone
+	box(rocks, 0.2, 0.15, 0.2, '#222222', -0.5, 0.1, 0.6);
+	addStatic(rocks, boulderDir, anyTangent(boulderDir));
+	layout.reserve(boulderDir, 3.2, false);
 
 	// --- Street life on the footpaths ----------------------------------------
 	// Chai stall sits back from the kerb so its bench is on the footpath.
@@ -619,11 +673,11 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 
 	// --- NPCs ---------------------------------------------------------------
 	const npcAnchors: Record<string, THREE.Vector3 | undefined> = {
-		chef: hotelDir,
-		diver: lakeDir ?? undefined,
-		alien: parkDir ? stepAlong(parkDir, anyTangent(parkDir), 1.2) : undefined,
-		musician: crossRoad.frameAt(0.68).up,
-		caveman: boulderDir
+		chef: stepAlong(hotelDir, anyTangent(hotelDir), 1.2),
+		diver: stepAlong(lakeApproach, lakeFrame.right.clone().multiplyScalar(-1), 1.0),
+		alien: stepAlong(parkApproach, parkFrame.right.clone().multiplyScalar(-1), 1.0),
+		musician: crossRoad.frameAt(0.68, ROAD_HALF_WIDTH + FOOTPATH_WIDTH * 0.5).up,
+		caveman: stepAlong(boulderApproach, boulderFrame.right.clone().multiplyScalar(-1), 0.9)
 	};
 	const npcs: Npc[] = [];
 	for (const id of npcIds) {
@@ -650,6 +704,8 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 		spawnFrame.forward,
 		layout.colliders
 	);
+	player.waterCenter = lakeDir;
+	player.waterRadius = 4.4;
 
 	// --- Traffic --------------------------------------------------------------
 	const traffic = new Traffic();
@@ -925,6 +981,15 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			if (!hasStrut && surfaceDistance(player.up, museumDir) < 3.5) {
 				return { type: 'strut' as const, prompt: 'Press [E] to acquire the Quantum Titanium Strut' };
 			}
+			if (!hasSunkenRelic && surfaceDistance(player.up, lakeDir) < 3.8) {
+				return { type: 'relic' as const, prompt: 'Press [E] to retrieve the Sunken Lotus Relic' };
+			}
+			if (!hasFlint && surfaceDistance(player.up, boulderDir) < 3.2) {
+				return { type: 'flint' as const, prompt: 'Press [E] to gather Primordial Flint' };
+			}
+			if (!inspectedUfo && surfaceDistance(player.up, parkDir) < 3.8) {
+				return { type: 'ufo' as const, prompt: 'Press [E] to inspect the damaged Flying Saucer' };
+			}
 			return null;
 		},
 		interactItem() {
@@ -936,6 +1001,15 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			} else if (item.type === 'strut') {
 				hasStrut = true;
 				quests.completeTask('alien_ufo_repair', 'steal_strut');
+			} else if (item.type === 'relic') {
+				hasSunkenRelic = true;
+				quests.completeTask('mani_lake_revival', 'clear_debris');
+			} else if (item.type === 'flint') {
+				hasFlint = true;
+				quests.completeTask('grog_ancient_spark', 'find_flint');
+			} else if (item.type === 'ufo') {
+				inspectedUfo = true;
+				quests.completeTask('alien_ufo_repair', 'inspect_ufo');
 			}
 		},
 		dispose() {
