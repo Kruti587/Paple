@@ -13,7 +13,7 @@
 				<span style="--i: {i}">{letter}</span>
 			{/each}
 		</h1>
-		<p class="tagline">A tiny planet. A big city. One stolen post-it.</p>
+		<p class="tagline">A tiny planet. A big garden city. Welcome to Bengaluru!</p>
 
 		<div class="buttons">
 			<button class="play" onclick={onplay} disabled={!ready}>

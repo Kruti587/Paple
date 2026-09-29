@@ -16,15 +16,17 @@
 	} = $props();
 </script>
 
-<div class="objective" class:urgent={ui.chasing} class:done={ui.stage === 'complete'}>
-	<div class="label">Quest · The Post-it Heist</div>
-	<div class="text">
-		{ui.objective}
-		{#if ui.distance !== null}<span class="meta">· {ui.distance} m</span>{/if}
-		{#if ui.floor !== null}<span class="floor">Floor {ui.floor}</span>{/if}
+{#if ui.space === 'in' || ui.chasing}
+	<div class="objective" class:urgent={ui.chasing} class:done={ui.stage === 'complete'}>
+		<div class="label">ANAKIN HQ Security</div>
+		<div class="text">
+			{ui.objective}
+			{#if ui.distance !== null}<span class="meta">· {ui.distance} m</span>{/if}
+			{#if ui.floor !== null}<span class="floor">Floor {ui.floor}</span>{/if}
+		</div>
+		{#if ui.hint}<div class="hint">{ui.hint}</div>{/if}
 	</div>
-	{#if ui.hint}<div class="hint">{ui.hint}</div>{/if}
-</div>
+{/if}
 
 {#if ui.hasPostIt && ui.stage !== 'complete'}
 	<div class="inventory" title="The stolen post-it">

@@ -35,6 +35,9 @@ import { createWildlifeSystem, type WildlifeSystem } from './props/wildlife';
 import { createTharCrashEvent, type TharCrashEvent } from './props/tharCrash';
 import { createAnakinHQ, createKiosk, createQuestMarker } from './props/anakinHQ';
 import { createClouds } from './props/clouds';
+import { createPlayground, type Playground } from './props/playground';
+import { createKiranaStore, type KiranaStore } from './props/kirana';
+import { createLotusPond, type LotusPond } from './props/lotusPond';
 import { disposeSignTextures } from './props/signs';
 import {
 	createBench,
@@ -361,6 +364,12 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	let ufo: BrokenUFO | null = null;
 	let wildlife: WildlifeSystem | null = null;
 	let tharCrash: TharCrashEvent | null = null;
+	let playground: Playground | null = null;
+	let lotusPond: LotusPond | null = null;
+	let kirana: KiranaStore | null = null;
+	let playgroundDir = new THREE.Vector3();
+	let kiranaDir = new THREE.Vector3();
+	let lotusPondDir = new THREE.Vector3();
 	let hasVeena = false;
 	let hasDeliveredVeena = false;
 	let hasChai = false;
@@ -372,6 +381,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	let hasLitFire = false;
 	let inspectedUfo = false;
 	let repairedUfo = false;
+	let boughtVeggies = false;
+	let zoomedSlide = false;
+	let fedDucks = false;
 
 	// ═════════════════════════════════════════════════════════════════════════
 	// 1. ULSOOR LAKE & PIER (Set far back from road curb: offset = 8.2m)
@@ -602,6 +614,44 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	placeOnSurface(flintGroup, flintPos, anyTangent(flintPos), 0.08);
 	scene.add(flintGroup);
 
+	// ═════════════════════════════════════════════════════════════════════════
+	// 4. BAL BHAVAN CHILDREN'S PLAY PARK (Animated swings, see-saw, slide, carousel)
+	// ═════════════════════════════════════════════════════════════════════════
+	const playgroundFrame = mainRoad.frameAt(0.62, 1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 6.2));
+	playgroundDir.copy(playgroundFrame.up);
+	const playgroundApproach = mainRoad.frameAt(0.62, 1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1.2)).up;
+	layout.reserve(playgroundApproach, 2.8, false);
+
+	// Warm golden sand ground patch under playground
+	patches.push({ dir: playgroundDir, radius: 6.2, color: '#fef08a' });
+	playground = createPlayground();
+	placeOnSurface(playground.group, playgroundDir, playgroundFrame.forward);
+	scene.add(playground.group);
+	layout.reserve(playgroundDir, playground.radius, false);
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// 5. NAMMA HOPCOMS & KIRANA VEGETABLE STORE (Corner provision shop)
+	// ═════════════════════════════════════════════════════════════════════════
+	const kiranaFrame = mainRoad.frameAt(0.28, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 3.2));
+	kiranaDir.copy(kiranaFrame.up);
+	kirana = createKiranaStore();
+	placeLandmark(kirana, mainRoad, 0.28, -1, 0.4);
+
+	// ═════════════════════════════════════════════════════════════════════════
+	// 6. SCENIC LOTUS POND & ARCHED WOODEN FOOTBRIDGE (Secondary water body)
+	// ═════════════════════════════════════════════════════════════════════════
+	const lotusFrame = crossRoad.frameAt(0.68, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 7.5));
+	lotusPondDir.copy(lotusFrame.up);
+	const lotusApproach = crossRoad.frameAt(0.68, -1 * (ROAD_HALF_WIDTH + FOOTPATH_WIDTH + 1.8)).up;
+	layout.reserve(lotusApproach, 2.6, false);
+
+	// Lush green bank around lotus pond
+	patches.push({ dir: lotusPondDir, radius: 7.2, color: PALETTE.grassDark });
+	lotusPond = createLotusPond();
+	placeOnSurface(lotusPond.group, lotusPondDir, lotusFrame.forward);
+	scene.add(lotusPond.group);
+	layout.reserve(lotusPondDir, lotusPond.radius, false);
+
 	// --- Street life on the footpaths ----------------------------------------
 	// Chai stall sits back from the kerb so its bench is on the footpath.
 	let chaiFrame = null;
@@ -790,51 +840,56 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	}
 
 	// --- Scattered trees, bushes, flower carpets ------------------------------
+	// Lush Bengaluru garden canopy (150+ trees filling the planet's vast open spaces!)
 	const kinds: TreeKind[] = [
-		'rain',
 		'rain',
 		'rain',
 		'jacaranda',
 		'jacaranda',
 		'gulmohar',
+		'gulmohar',
+		'tabebuia',
 		'tabebuia',
 		'palm',
 		'palm'
 	];
-	for (let i = 0; i < 32; i++) {
+	for (let i = 0; i < 150; i++) {
 		const kind = pick(rand, kinds);
 		const tree = createTree(kind, rand);
-		const p = layout.randomFreeSpot(tree.canopy * 0.6, 1);
+		const p = layout.randomFreeSpot(tree.canopy * 0.55, 1);
 		if (!p) continue;
 		addStatic(tree.group, p, anyTangent(p).applyAxisAngle(p, rand() * 6.28));
-		layout.reserve(p, tree.canopy * 0.55, true, tree.radius);
-		// Carpet of fallen blossoms under jacaranda and tabebuia.
-		if (kind === 'jacaranda' || kind === 'tabebuia')
+		layout.reserve(p, tree.canopy * 0.5, true, tree.radius);
+		// Carpet of fallen blossoms under jacaranda, tabebuia, and fiery gulmohar
+		if (kind === 'jacaranda' || kind === 'tabebuia' || kind === 'gulmohar') {
+			const carpetCol = kind === 'jacaranda' ? PALETTE.jacaranda : kind === 'tabebuia' ? PALETTE.tabebuia : PALETTE.gulmohar;
 			patches.push({
 				dir: p,
-				radius: tree.canopy * 0.8,
-				color: kind === 'jacaranda' ? PALETTE.jacaranda : PALETTE.tabebuia
+				radius: tree.canopy * 0.85,
+				color: carpetCol
 			});
+		}
 	}
-	for (let i = 0; i < 70; i++) {
-		const p = layout.randomFreeSpot(0.45, 0.8);
+	// Dense flower bushes across parklands and lanes
+	for (let i = 0; i < 120; i++) {
+		const p = layout.randomFreeSpot(0.4, 0.8);
 		if (!p) continue;
 		const bush = new THREE.Group();
-		const n = 2 + Math.floor(rand() * 2);
+		const n = 2 + Math.floor(rand() * 3);
 		for (let k = 0; k < n; k++)
 			blob(
 				bush,
-				range(rand, 0.25, 0.42),
+				range(rand, 0.25, 0.45),
 				k % 2 ? PALETTE.bush : PALETTE.rainTree,
 				(k - n / 2) * 0.3,
 				0.2,
 				range(rand, -0.15, 0.15)
 			);
 		addStatic(bush, p, anyTangent(p));
-		layout.reserve(p, 0.4);
+		layout.reserve(p, 0.35);
 	}
-	{
-		// A tree katte (stone platform round a big tree) for the neighbourhood
+	// Traditional stone tree kattes (platforms round shade trees for elders to sit and chat)
+	for (let k = 0; k < 4; k++) {
 		const p = layout.randomFreeSpot(1.8, 1);
 		if (p) {
 			const katte = createTreeKatte(rand);
@@ -1180,6 +1235,8 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			ufo?.update(elapsed);
 			wildlife?.update(elapsed, dt);
 			tharCrash?.update(elapsed, dt);
+			playground?.update(elapsed, dt);
+			lotusPond?.update(elapsed, dt);
 			playerVeena.visible = hasVeena && !hasDeliveredVeena;
 			templeVeena.visible = !hasVeena;
 			musicianVeena.visible = hasDeliveredVeena;
@@ -1320,6 +1377,9 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 				{ id: 'park', label: 'Cubbon Park & UFO Crash', dir: parkDir ?? junction.clone().normalize(), radius: 6.0 },
 				{ id: 'lake', label: 'Ulsoor Lake & Pier', dir: lakeDir ?? junction.clone().normalize(), radius: 6.0 },
 				{ id: 'boulders', label: 'Precambrian Boulders', dir: boulderDir ?? junction.clone().normalize(), radius: 5.0 },
+				{ id: 'playground', label: 'Bal Bhavan Children Park', dir: playgroundDir, radius: 5.5 },
+				{ id: 'kirana', label: 'HOPCOMS & Namma Kirana', dir: kiranaDir, radius: 5.0 },
+				{ id: 'lotuspond', label: 'Lotus Pond & Wooden Bridge', dir: lotusPondDir, radius: 5.5 },
 				{ id: 'museum', label: 'Karnataka Science Museum', dir: museumDir, radius: 6.0 },
 				{ id: 'glasshouse', label: 'Lalbagh Glass House', dir: glassHouseDir, radius: 6.0 },
 				{ id: 'palace', label: 'Bangalore Palace', dir: palaceDir, radius: 6.5 },
@@ -1363,6 +1423,15 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			}
 			if (hasStrut && !repairedUfo && surfaceDistance(player.up, parkDir) < 3.8) {
 				return { type: 'ufo_repair' as const, prompt: 'Press [E] to install Titanium Strut into Flying Saucer' };
+			}
+			if (kiranaDir.lengthSq() > 0 && surfaceDistance(player.up, kiranaDir) < 3.5) {
+				return { type: 'kirana' as const, prompt: 'Press [E] to buy fresh produce from Murthy Uncle' };
+			}
+			if (playgroundDir.lengthSq() > 0 && surfaceDistance(player.up, playgroundDir) < 4.0) {
+				return { type: 'playground' as const, prompt: 'Press [E] to zoom down the slide at the playground!' };
+			}
+			if (lotusPondDir.lengthSq() > 0 && surfaceDistance(player.up, lotusPondDir) < 4.5) {
+				return { type: 'lotuspond' as const, prompt: 'Press [E] to feed crumbs to the ducks in the lotus pond' };
 			}
 			if (dogDir && surfaceDistance(player.up, dogDir) < 2.0) {
 				return { type: 'pet_dog' as const, prompt: 'Press [E] to pet Bruno the Indie Dog' };
@@ -1436,6 +1505,18 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 				spawnHeart(cornDir, 1.2);
 			} else if (item.type === 'sip_coconut') {
 				spawnHeart(coconutDir, 1.2);
+			} else if (item.type === 'kirana') {
+				boughtVeggies = true;
+				quests.completeTask('daily_bengaluru', 'visit_kirana');
+				spawnHeart(kiranaDir, 1.2);
+			} else if (item.type === 'playground') {
+				zoomedSlide = true;
+				quests.completeTask('daily_bengaluru', 'play_slide');
+				spawnHeart(playgroundDir, 1.2);
+			} else if (item.type === 'lotuspond') {
+				fedDucks = true;
+				quests.completeTask('daily_bengaluru', 'visit_pond');
+				spawnHeart(lotusPondDir, 1.2);
 			}
 		},
 		nearbySpeech(camera: THREE.Camera): { name: string; text: string; x: number; y: number } | null {
@@ -1524,6 +1605,36 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 						'Welcome to Bangalore Palace! Built in authentic Tudor-Gothic style!',
 						'Notice the fortified towers and crenellated battlements!',
 						'Keep your camera ready for the royal forecourt!'
+					]
+				},
+				{
+					name: 'Murthy Uncle (HOPCOMS)',
+					dir: kiranaDir,
+					height: 1.5,
+					lines: [
+						'Fresh Nilgiri carrots and sweet tomatoes arrived today!',
+						'Paytm soundbox will say ₹40, don’t worry amma!',
+						'Nanjangud rasabale bananas are the best in the city!'
+					]
+				},
+				{
+					name: 'Playground Kids',
+					dir: playgroundDir,
+					height: 1.1,
+					lines: [
+						'Wheeee! Watch me zoom down the slide!',
+						'Push me higher on the swings, please!',
+						'Spin the merry-go-round faster, it is so fun!'
+					]
+				},
+				{
+					name: 'Lotus Pond Watcher',
+					dir: lotusPondDir,
+					height: 1.5,
+					lines: [
+						'The pink lotus blossoms are blooming beautifully today!',
+						'Look at the mama duck leading her ducklings across the bridge!',
+						'Such quiet peace under the weeping tree shade.'
 					]
 				}
 			];

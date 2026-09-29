@@ -93,5 +93,20 @@ export const INITIAL_QUESTS: Quest[] = [
 			{ id: 'find_flint', label: 'Find a sharp flint stone among the rock outcrops', done: false },
 			{ id: 'light_fire', label: 'Help Grog spark the ancient boulder bonfire', done: false }
 		]
+	},
+	{
+		id: 'daily_bengaluru',
+		title: 'Namma Bengaluru Daily Life',
+		icon: '🛍️',
+		giver: 'murthy',
+		description: 'Experience authentic daily Bengaluru life: pick fresh vegetables, play at the park, and watch the lotus ducks!',
+		active: true,
+		completed: false,
+		reward: 'Garden City Trophy & Bengaluru Badge 🏅',
+		tasks: [
+			{ id: 'visit_kirana', label: 'Buy fresh produce from Murthy Uncle at HOPCOMS', done: false },
+			{ id: 'play_slide', label: 'Zoom down the slide at Bal Bhavan Children Playground', done: false },
+			{ id: 'visit_pond', label: 'Feed crumbs to the ducks at the Lotus Pond Footbridge', done: false }
+		]
 	}
 ];
