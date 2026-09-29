@@ -20,6 +20,7 @@
 	import { Game, type GameEvent, type GameUi } from '$lib/game/game';
 	import { npcConfig } from '$lib/npcConfig';
 	import { createWorld } from '$lib/world/createWorld';
+	import { playAutoHorn } from '$lib/audio/autoHorn';
 	import { formatClock } from '$lib/world/dayCycle';
 	import { createKeyboard } from '$lib/world/input';
 	import { attachViewControls } from '$lib/world/player';
@@ -43,6 +44,24 @@
 	// --- HUD ---
 	let clock = $state('');
 	let isNight = $state(false);
+	let flashActive = $state(false);
+	let capturedPostcard = $state<{ dataUrl: string; zone: string; timeStr: string } | null>(null);
+
+	function takePostcardPhoto() {
+		if (!canvas) return;
+		flashActive = true;
+		setTimeout(() => (flashActive = false), 350);
+		try {
+			const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+			capturedPostcard = {
+				dataUrl,
+				zone: currentZoneLabel || 'Namma Bengaluru Heart',
+				timeStr: clock || 'Bengaluru Daytime'
+			};
+		} catch (err) {
+			console.warn('Postcard snapshot error:', err);
+		}
+	}
 	let ui = $state<GameUi | null>(null);
 	let toast = $state<string | null>(null);
 	let shout = $state<string | null>(null);
@@ -216,6 +235,13 @@
 				} else if (e.code === 'Escape') {
 					activeNpcId = null;
 					settingsOpen = false;
+					capturedPostcard = null;
+				} else if (e.code === 'KeyP') {
+					if (capturedPostcard) {
+						capturedPostcard = null;
+					} else {
+						takePostcardPhoto();
+					}
 				}
 				// [ and ] step the clock back / forward an hour.
 				else if (e.code === 'BracketRight') world.skipHours(1);
@@ -245,6 +271,18 @@
 					}
 					const near = g.space === 'out' && g.controllable ? world.nearbyNpc() : null;
 					if (near !== nearbyNpcId) nearbyNpcId = near;
+
+					// Auto close NPC conversation if player walks away (>4.5m)
+					if (activeNpcId && world.npcDistance && world.npcDistance(activeNpcId) > 4.5) {
+						activeNpcId = null;
+					}
+
+					// Bangalore Auto-Rickshaw "peep-peep!" horn when approaching
+					const autoInfo = world.nearestAuto ? world.nearestAuto() : null;
+					if (autoInfo && autoInfo.distance < 9.0 && Math.abs(autoInfo.speed) > 0.8) {
+						playAutoHorn(Math.max(0.15, 1.0 - autoInfo.distance / 9.0));
+					}
+
 					currentZoneLabel = world.currentZone()?.label ?? '';
 					itemPrompt = world.canInteractItem()?.prompt ?? null;
 					tharChatter = world.tharChatter();
@@ -290,12 +328,20 @@
 	{:else}
 		<div class="hint">
 			<strong>Namma Planet</strong>
-			<span>WASD to walk · Shift to run · drag to look · scroll to zoom</span>
+			<span>WASD to walk · Shift to run · drag to look · P for Polaroid Postcard</span>
 		</div>
 		<div class="bottom-right">
 			<div class="clock" class:night={isNight} title="Current Time in Bengaluru">
 				<strong>{clock}</strong>
 			</div>
+			<button
+				class="gear"
+				onclick={takePostcardPhoto}
+				aria-label="Polaroid Camera"
+				title="Capture Bangalore Postcard (P)"
+			>
+				📷
+			</button>
 			<button
 				class="gear"
 				onclick={() => setMusic(!musicOn)}
@@ -331,6 +377,37 @@
 				<div class="speech-tail"></div>
 			</div>
 		{/if}
+	{/if}
+
+	{#if flashActive}
+		<div class="camera-flash"></div>
+	{/if}
+
+	{#if capturedPostcard}
+		<div class="polaroid-overlay" role="dialog" aria-modal="true">
+			<div class="polaroid-card">
+				<div class="polaroid-photo-frame">
+					<img src={capturedPostcard.dataUrl} alt="Bangalore Snapshot" class="polaroid-img" />
+					<div class="polaroid-stamp">NAMMA BENGALURU</div>
+				</div>
+				<div class="polaroid-caption">
+					<div class="polaroid-location">📍 {capturedPostcard.zone}</div>
+					<div class="polaroid-date">Captured at {capturedPostcard.timeStr}</div>
+				</div>
+				<div class="polaroid-actions">
+					<a
+						href={capturedPostcard.dataUrl}
+						download={`Bangalore_Postcard_${Date.now()}.jpg`}
+						class="polaroid-btn save"
+					>
+						💾 Save Postcard
+					</a>
+					<button class="polaroid-btn close" onclick={() => (capturedPostcard = null)}>
+						Close [P]
+					</button>
+				</div>
+			</div>
+		</div>
 	{/if}
 
 	{#if activeNpcId && activeNpc}
@@ -542,5 +619,131 @@
 		border-left: 7px solid transparent;
 		border-right: 7px solid transparent;
 		border-top: 9px solid #ffffff;
+	}
+
+	/* ── Camera Flash & Polaroid Snapshot ── */
+	.camera-flash {
+		position: fixed;
+		inset: 0;
+		background: #ffffff;
+		z-index: 9999;
+		pointer-events: none;
+		animation: flashFade 0.35s ease-out forwards;
+	}
+	@keyframes flashFade {
+		0% { opacity: 0.95; }
+		100% { opacity: 0; }
+	}
+
+	.polaroid-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(15, 23, 42, 0.75);
+		backdrop-filter: blur(8px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		padding: 1rem;
+		animation: fadeIn 0.25s ease-out;
+	}
+	@keyframes fadeIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	.polaroid-card {
+		background: #fdfbf7;
+		padding: 1.25rem 1.25rem 1.75rem;
+		border-radius: 4px;
+		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0,0,0,0.08);
+		max-width: 440px;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		transform: rotate(-1.5deg);
+		transition: transform 0.2s ease;
+	}
+	.polaroid-card:hover {
+		transform: rotate(0deg) scale(1.01);
+	}
+	.polaroid-photo-frame {
+		position: relative;
+		background: #0f172a;
+		border-radius: 2px;
+		overflow: hidden;
+		aspect-ratio: 4 / 3;
+		box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5);
+	}
+	.polaroid-img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+	.polaroid-stamp {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		background: rgba(225, 29, 72, 0.9);
+		color: #ffffff;
+		font-size: 0.65rem;
+		font-weight: 900;
+		letter-spacing: 0.12em;
+		padding: 0.25rem 0.55rem;
+		border-radius: 4px;
+		border: 1px dashed rgba(255, 255, 255, 0.7);
+		box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+	}
+	.polaroid-caption {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		border-top: 1px dashed #cbd5e1;
+		padding-top: 0.75rem;
+	}
+	.polaroid-location {
+		font-family: 'Courier New', Courier, monospace;
+		font-size: 1.05rem;
+		font-weight: 800;
+		color: #0f172a;
+	}
+	.polaroid-date {
+		font-size: 0.78rem;
+		color: #64748b;
+		font-weight: 600;
+	}
+	.polaroid-actions {
+		display: flex;
+		gap: 0.75rem;
+		margin-top: 0.4rem;
+	}
+	.polaroid-btn {
+		flex: 1;
+		padding: 0.65rem 1rem;
+		border-radius: 8px;
+		font-weight: 700;
+		font-size: 0.88rem;
+		cursor: pointer;
+		text-align: center;
+		text-decoration: none;
+		transition: all 0.15s ease;
+		border: none;
+	}
+	.polaroid-btn.save {
+		background: #b91c1c;
+		color: #ffffff;
+	}
+	.polaroid-btn.save:hover {
+		background: #991b1b;
+		transform: translateY(-1px);
+	}
+	.polaroid-btn.close {
+		background: #e2e8f0;
+		color: #1e293b;
+	}
+	.polaroid-btn.close:hover {
+		background: #cbd5e1;
 	}
 </style>

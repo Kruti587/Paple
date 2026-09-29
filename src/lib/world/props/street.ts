@@ -167,3 +167,44 @@ export function createTrafficUmbrella(): THREE.Group {
 	add(g, new THREE.ConeGeometry(0.5, 0.22, 8), '#ffffff', 0, 2.62, 0);
 	return g;
 }
+
+/** 🐕 Indie Street Dog ("Bruno") with golden-fawn coat, sickle tail, and pointy ears */
+export function createIndieDog(): THREE.Group {
+	const g = new THREE.Group();
+	const fawn = '#d97706';
+	const white = '#fef3c7';
+	const black = '#18181b';
+
+	// Body (torso)
+	box(g, 0.32, 0.34, 0.65, fawn, 0, 0.38, 0);
+	// White chest patch
+	box(g, 0.24, 0.28, 0.12, white, 0, 0.38, 0.30);
+	// 4 legs
+	for (const x of [-0.11, 0.11]) {
+		for (const z of [-0.22, 0.22]) {
+			cylinder(g, 0.04, 0.045, 0.32, fawn, x, 0.16, z, 6);
+			box(g, 0.07, 0.04, 0.09, white, x, 0.02, z + 0.02); // white paws
+		}
+	}
+	// Neck & head
+	cylinder(g, 0.11, 0.13, 0.24, fawn, 0, 0.55, 0.32, 8).rotation.x = -0.4;
+	sphere(g, 0.14, fawn, 0, 0.68, 0.40, 8);
+	// Snout & black nose
+	box(g, 0.14, 0.11, 0.18, white, 0, 0.65, 0.52);
+	sphere(g, 0.035, black, 0, 0.68, 0.60, 6); // wet black nose
+	// Cute dark eyes
+	sphere(g, 0.025, black, -0.06, 0.72, 0.48, 4);
+	sphere(g, 0.025, black,  0.06, 0.72, 0.48, 4);
+	// Pointed alert Indian street dog ears
+	const earL = cylinder(g, 0.01, 0.04, 0.14, fawn, -0.09, 0.82, 0.38, 4);
+	earL.rotation.z = -0.3;
+	const earR = cylinder(g, 0.01, 0.04, 0.14, fawn,  0.09, 0.82, 0.38, 4);
+	earR.rotation.z = 0.3;
+	// Red collar with gold bell tag
+	cylinder(g, 0.125, 0.125, 0.035, '#dc2626', 0, 0.54, 0.32, 8);
+	sphere(g, 0.03, PALETTE.gold, 0, 0.49, 0.39, 6);
+	// Upcurled sickle tail
+	const tail = cylinder(g, 0.03, 0.04, 0.32, fawn, 0, 0.52, -0.42, 6);
+	tail.rotation.x = 0.8;
+	return g;
+}

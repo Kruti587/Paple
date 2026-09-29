@@ -1,5 +1,5 @@
-/** 76 m diameter planet. All world units are metres. Expansive curvature. */
-export const PLANET_RADIUS = 38;
+/** 124 m diameter planet. Vast, expansive Bengaluru world with gentle curvature. */
+export const PLANET_RADIUS = 62;
 
 export const ROAD_HALF_WIDTH = 1.7;
 /** Red-earth shoulder / footpath beyond the kerb. */

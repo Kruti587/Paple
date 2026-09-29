@@ -723,38 +723,34 @@ export function createGopuram(): Building {
 	blob(g, 0.06, '#e53935', 0, 0.62, -0.28);
 
 	// ── 10. THE SACRED OBJECT: DIVINE VEENA (CARNATIC MUSICAL INSTRUMENT) ─
-	// Resting proudly on a ceremonial red-and-gold stand right before the altar
+	// Ceremonial red-and-gold stand right before the altar
 	box(g, 1.3, 0.10, 0.44, PALETTE.templeRed, 0, 0.36, 0.40);
 	box(g, 1.36, 0.04, 0.50, PALETTE.gold, 0, 0.33, 0.40);
-
-	const templeVeena = createVeenaModel();
-	g.add(templeVeena);
-	g.userData.veena = templeVeena;
 
 	return { group: g, width: 5.6, depth: 7.0, hollowFootprint: true };
 }
 
-/** Creates a standalone Divine Carnatic Veena model. */
+/** Creates a standalone Divine Carnatic Veena model centered at origin. */
 export function createVeenaModel(): THREE.Group {
 	const v = new THREE.Group();
 	// Veena main resonator gourd (Kudam) on right
-	sphere(v, 0.22, '#7a3818', 0.38, 0.52, 0.40, 14);
-	cylinder(v, 0.16, 0.16, 0.04, '#fff9ea', 0.38, 0.64, 0.40, 10);
+	sphere(v, 0.22, '#7a3818', 0.38, 0.12, 0, 14);
+	cylinder(v, 0.16, 0.16, 0.04, '#fff9ea', 0.38, 0.24, 0, 10);
 	// Veena long neck (Dandi)
-	const dandi = cylinder(v, 0.045, 0.045, 0.82, '#5c2a12', -0.05, 0.54, 0.40, 8);
+	const dandi = cylinder(v, 0.045, 0.045, 0.82, '#5c2a12', -0.05, 0.14, 0, 8);
 	dandi.rotation.z = Math.PI / 2;
 	// Golden frets along the neck
 	for (let f = 0; f < 5; f++) {
-		box(v, 0.02, 0.025, 0.07, PALETTE.gold, -0.32 + f * 0.12, 0.58, 0.40);
+		box(v, 0.02, 0.025, 0.07, PALETTE.gold, -0.32 + f * 0.12, 0.18, 0);
 	}
 	// Secondary resonator gourd on left
-	sphere(v, 0.12, '#7a3818', -0.42, 0.44, 0.40, 10);
+	sphere(v, 0.12, '#7a3818', -0.42, 0.04, 0, 10);
 	// Golden carved Yali dragon head scroll at pegbox
-	sphere(v, 0.08, PALETTE.gold, -0.52, 0.56, 0.40, 8);
-	cylinder(v, 0.025, 0.045, 0.14, PALETTE.gold, -0.55, 0.64, 0.40, 6);
+	sphere(v, 0.08, PALETTE.gold, -0.52, 0.16, 0, 8);
+	cylinder(v, 0.025, 0.045, 0.14, PALETTE.gold, -0.55, 0.24, 0, 6);
 
 	// Golden sacred quest sparkle aura around the Veena
-	const glowRing = cylinder(v, 0.46, 0.46, 0.02, PALETTE.gold, 0, 0.40, 0.40, 16);
+	const glowRing = cylinder(v, 0.46, 0.46, 0.02, PALETTE.gold, 0, 0.02, 0, 16);
 	glowRing.scale.set(1.4, 1, 0.6);
 	return v;
 }
@@ -916,15 +912,6 @@ export function createMuseum(): Building {
 		}
 	}
 
-	// 🛸 The Glowing Quantum Titanium Strut artifact
-	cylinder(g, 0.07, 0.09, 0.75, '#22d3ee', 0, baseY + 1.35, 0.4, 8);
-	sphere(g, 0.15, '#06b6d4', 0, baseY + 1.75, 0.4, 8);
-	sphere(g, 0.12, '#38bdf8', 0, baseY + 0.95, 0.4, 8);
-	// Kinetic energy rings spinning round the strut
-	const ring1 = cylinder(g, 0.24, 0.24, 0.03, '#a855f7', 0, baseY + 1.25, 0.4, 12);
-	ring1.rotation.x = 0.35;
-	const ring2 = cylinder(g, 0.28, 0.28, 0.03, '#38bdf8', 0, baseY + 1.45, 0.4, 12);
-	ring2.rotation.z = 0.4;
 	// Exhibit brass plaque in front of pedestal
 	box(g, 0.65, 0.18, 0.05, '#f59e0b', 0, baseY + 0.35, 1.45);
 
@@ -984,6 +971,19 @@ export function createMuseum(): Building {
 	return { group: g, width: 10.2, depth: 8.2, hollowFootprint: true };
 }
 
+/** 🛸 Standalone Quantum Titanium Strut model with spinning energy rings */
+export function createQuantumStrutModel(): THREE.Group {
+	const s = new THREE.Group();
+	cylinder(s, 0.07, 0.09, 0.75, '#22d3ee', 0, 0, 0, 8);
+	sphere(s, 0.15, '#06b6d4', 0, 0.40, 0, 8);
+	sphere(s, 0.12, '#38bdf8', 0, -0.40, 0, 8);
+	const ring1 = cylinder(s, 0.24, 0.24, 0.03, '#a855f7', 0, -0.10, 0, 12);
+	ring1.rotation.x = 0.35;
+	const ring2 = cylinder(s, 0.28, 0.28, 0.03, '#38bdf8', 0, 0.10, 0, 12);
+	ring2.rotation.z = 0.4;
+	return s;
+}
+
 
 /** 🏰 Bangalore Palace (Tudor-Gothic Icon) with battlements & photo-taking tourists */
 export function createBangalorePalace(): Building {
@@ -1028,146 +1028,232 @@ export function createBangalorePalace(): Building {
 	return { group: g, width: 11.4, depth: 7.8 };
 }
 
-/** 🌺 Lalbagh Botanical Garden Glass House (Authentic 1889 Crystal Palace matching user photograph) */
+/** 🌺 Lalbagh Botanical Garden Glass House (Elevated Victorian Crystal Palace) */
 export function createGlassHouse(): Building {
 	const g = new THREE.Group();
-	const width = 10.6;
-	const depth = 7.8;
+	const width = 11.4;
+	const depth = 8.0;
 	const ironGreen = '#14532d'; // Deep Victorian green ironwork
 	const glassTint = '#e0f2fe'; // Translucent tinted conservatory glass
 	const brickRed = '#b91c1c';  // Terracotta red plinth walls
 	const stoneYellow = '#eab308'; // Bangalore yellow step stone
 
-	// ── 1. RED BRICK TERRACE & YELLOW STEPS (Forecourt from Photo) ─────
-	// Lower terrace plinth
-	box(g, width + 1.2, 0.35, depth + 3.8, brickRed, 0, 0.175, 1.2);
-	// Yellow stone steps leading up
-	for (let s = 0; s < 3; s++) {
-		box(g, 4.4 - s * 0.4, 0.12, 0.6, stoneYellow, 0, 0.06 + s * 0.12, depth / 2 + 2.8 - s * 0.4);
+	// ── 1. ELEVATED VICTORIAN GARDEN PODIUM (0.85m High Stone Terrace) ──
+	const podiumH = 0.85;
+	const podiumW = width + 2.2;
+	const podiumD = depth + 6.2;
+	// Red brick retaining foundation plinth
+	box(g, podiumW, podiumH, podiumD, brickRed, 0, podiumH / 2, 0.8);
+	// Stone coping cornice rim
+	box(g, podiumW + 0.3, 0.12, podiumD + 0.3, '#78350f', 0, podiumH + 0.06, 0.8);
+	// Lush green lawn top terrace
+	box(g, podiumW - 0.2, 0.04, podiumD - 0.2, '#16a34a', 0, podiumH + 0.10, 0.8);
+
+	// Grand yellow stone steps descending to the street in front
+	const stepsZ = podiumD / 2 + 0.8;
+	for (let s = 0; s < 5; s++) {
+		const sw = 5.2 - s * 0.3;
+		const sy = (podiumH / 5) * (4 - s);
+		box(g, sw, 0.18, 0.55, stoneYellow, 0, sy + 0.09, stepsZ - 0.5 + s * 0.45);
 	}
 
-	// ── 2. GRAND MULTI-TIERED FOUNTAIN (Center Foreground from Photo) ───
-	const fz = depth / 2 + 1.6;
+	// ── 2. GRAND MULTI-TIERED FOUNTAIN (Center Foreground on Podium) ───
+	const fz = 2.4;
+	const fBaseY = podiumH + 0.1;
 	// Circular fountain water basin
-	cylinder(g, 1.45, 1.55, 0.45, brickRed, 0, 0.35, fz, 16);
-	cylinder(g, 1.35, 1.35, 0.08, '#38bdf8', 0, 0.48, fz, 16); // pool water
+	cylinder(g, 1.45, 1.55, 0.45, brickRed, 0, fBaseY + 0.22, fz, 16);
+	cylinder(g, 1.35, 1.35, 0.08, '#38bdf8', 0, fBaseY + 0.36, fz, 16); // pool water
 	// Fountain pedestal & tiered bowls
-	cylinder(g, 0.22, 0.3, 0.8, '#f8fafc', 0, 0.85, fz, 10);
-	cylinder(g, 0.75, 0.6, 0.18, '#f8fafc', 0, 1.25, fz, 12); // lower bowl
-	cylinder(g, 0.15, 0.18, 0.6, '#f8fafc', 0, 1.6, fz, 8);
-	cylinder(g, 0.42, 0.3, 0.14, '#f8fafc', 0, 1.95, fz, 10); // upper bowl
+	cylinder(g, 0.22, 0.3, 0.8, '#f8fafc', 0, fBaseY + 0.75, fz, 10);
+	cylinder(g, 0.75, 0.6, 0.18, '#f8fafc', 0, fBaseY + 1.15, fz, 12); // lower bowl
+	cylinder(g, 0.15, 0.18, 0.6, '#f8fafc', 0, fBaseY + 1.5, fz, 8);
+	cylinder(g, 0.42, 0.3, 0.14, '#f8fafc', 0, fBaseY + 1.85, fz, 10); // upper bowl
 	// Spouting water jet sprays
-	sphere(g, 0.12, '#bae6fd', 0, 2.2, fz, 8);
+	sphere(g, 0.12, '#bae6fd', 0, fBaseY + 2.1, fz, 8);
 	for (let j = 0; j < 6; j++) {
 		const ja = (j / 6) * Math.PI * 2;
-		const spray = cylinder(g, 0.02, 0.04, 0.35, '#7dd3fc', Math.sin(ja) * 0.25, 2.05, fz + Math.cos(ja) * 0.25, 4);
+		const spray = cylinder(g, 0.02, 0.04, 0.35, '#7dd3fc', Math.sin(ja) * 0.25, fBaseY + 1.95, fz + Math.cos(ja) * 0.25, 4);
 		spray.rotation.z = Math.sin(ja) * 0.4;
 		spray.rotation.x = Math.cos(ja) * 0.4;
 	}
 
-	// ── 3. ORNATE VICTORIAN WHITE 5-GLOBE LAMPPOSTS (from Photo) ───────
-	for (const lx of [-3.8, 3.8]) {
-		const lz = depth / 2 + 2.2;
-		// Red plinth
-		box(g, 0.65, 0.65, 0.65, brickRed, lx, 0.325, lz);
-		// White cast iron pole
-		cylinder(g, 0.07, 0.12, 1.6, '#f8fafc', lx, 1.45, lz, 8);
-		// Center globe
-		sphere(g, 0.15, '#ffffff', lx, 2.4, lz, 8);
-		// 4 Side arm globes
+	// ── 3. ORNATE VICTORIAN WHITE 5-GLOBE LAMPPOSTS ─────────────────────
+	for (const lx of [-4.2, 4.2]) {
+		const lz = 3.2;
+		box(g, 0.65, 0.65, 0.65, brickRed, lx, fBaseY + 0.325, lz);
+		cylinder(g, 0.07, 0.12, 1.6, '#f8fafc', lx, fBaseY + 1.45, lz, 8);
+		sphere(g, 0.15, '#ffffff', lx, fBaseY + 2.4, lz, 8);
 		for (const sx of [-0.32, 0.32]) {
-			cylinder(g, 0.03, 0.03, 0.32, '#f8fafc', lx + sx / 2, 2.15, lz, 4).rotation.z = Math.PI / 2;
-			sphere(g, 0.12, '#ffffff', lx + sx, 2.25, lz, 8);
+			cylinder(g, 0.03, 0.03, 0.32, '#f8fafc', lx + sx / 2, fBaseY + 2.15, lz, 4).rotation.z = Math.PI / 2;
+			sphere(g, 0.12, '#ffffff', lx + sx, fBaseY + 2.25, lz, 8);
 		}
 		for (const sz of [-0.32, 0.32]) {
-			cylinder(g, 0.03, 0.03, 0.32, '#f8fafc', lx, 2.15, lz + sz / 2, 4).rotation.x = Math.PI / 2;
-			sphere(g, 0.12, '#ffffff', lx, 2.25, lz + sz, 8);
+			cylinder(g, 0.03, 0.03, 0.32, '#f8fafc', lx, fBaseY + 2.15, lz + sz / 2, 4).rotation.x = Math.PI / 2;
+			sphere(g, 0.12, '#ffffff', lx + sz, fBaseY + 2.25, lz + sz, 8);
 		}
 	}
 
-	// ── 4. FLOWER BEDS & MANICURED HEDGES IN FORECOURT (from Photo) ─────
-	for (const hx of [-2.4, 2.4]) {
-		// Low green hedge
-		box(g, 1.6, 0.45, 0.5, '#15803d', hx, 0.55, depth / 2 + 2.5);
-		// Golden yellow marigold border (from photo)
+	// ── 4. FLOWER BEDS & HEDGES ON FORECOURT TERRACE ───────────────────
+	for (const hx of [-2.6, 2.6]) {
+		box(g, 1.8, 0.45, 0.6, '#15803d', hx, fBaseY + 0.25, 3.2);
 		for (let m = 0; m < 5; m++) {
-			sphere(g, 0.12, '#facc15', hx - 0.6 + m * 0.3, 0.8, depth / 2 + 2.5, 6);
+			sphere(g, 0.14, '#facc15', hx - 0.6 + m * 0.3, fBaseY + 0.55, 3.2, 6);
 		}
 	}
 
-	// ── 5. MAIN VICTORIAN GLASS HOUSE STRUCTURE (1889 Arch & Trusses) ──
-	const baseY = 0.35;
-	// Grand arched central glass pavilion (Matching photograph shape)
-	// Outer glass envelope
-	box(g, width, 3.2, depth, glassTint, 0, baseY + 1.6, 0);
+	// ── 5. MAIN VICTORIAN GLASS HOUSE STRUCTURE ────────────────────────
+	const baseY = fBaseY;
+	const houseZ = -1.2;
+	// Outer translucent glass pavilion
+	box(g, width, 3.4, depth, glassTint, 0, baseY + 1.7, houseZ);
 
-	// Victorian Green Iron Columns and Arches (Glazing Bars)
+	// Victorian green iron columns and framing
 	for (let x = -5; x <= 5; x++) {
-		const cx = x * 1.0;
-		cylinder(g, 0.07, 0.07, 3.2, ironGreen, cx, baseY + 1.6, depth / 2, 8);
-		cylinder(g, 0.07, 0.07, 3.2, ironGreen, cx, baseY + 1.6, -depth / 2, 8);
+		const cx = x * 1.05;
+		cylinder(g, 0.07, 0.07, 3.4, ironGreen, cx, baseY + 1.7, houseZ + depth / 2, 8);
+		cylinder(g, 0.07, 0.07, 3.4, ironGreen, cx, baseY + 1.7, houseZ - depth / 2, 8);
 	}
-	// Arched iron roof trusses
 	for (let z = -3; z <= 3; z++) {
-		const cz = z * 1.1;
-		cylinder(g, 0.07, 0.07, 3.2, ironGreen, -width / 2, baseY + 1.6, cz, 8);
-		cylinder(g, 0.07, 0.07, 3.2, ironGreen, width / 2, baseY + 1.6, cz, 8);
+		const cz = z * 1.15;
+		cylinder(g, 0.07, 0.07, 3.4, ironGreen, -width / 2, baseY + 1.7, houseZ + cz, 8);
+		cylinder(g, 0.07, 0.07, 3.4, ironGreen,  width / 2, baseY + 1.7, houseZ + cz, 8);
 	}
 
-	// Semicircular grand glass arch portal with radiating tracery (Matching Photo)
-	cylinder(g, 2.6, 2.6, 0.25, ironGreen, 0, baseY + 3.2, depth / 2 + 0.05, 16);
-	cylinder(g, 2.4, 2.4, 0.28, glassTint, 0, baseY + 3.2, depth / 2 + 0.05, 16);
-	// Triangular glass pediment apex (Top of Photo)
-	box(g, 4.8, 0.2, depth, ironGreen, 0, baseY + 4.2, 0);
-	const roofGlass = box(g, 4.4, 0.8, depth - 0.2, glassTint, 0, baseY + 4.6, 0);
+	// Semicircular grand glass arch portal with radiating tracery
+	cylinder(g, 2.6, 2.6, 0.25, ironGreen, 0, baseY + 3.4, houseZ + depth / 2 + 0.05, 16);
+	cylinder(g, 2.4, 2.4, 0.28, glassTint, 0, baseY + 3.4, houseZ + depth / 2 + 0.05, 16);
+	// Triangular glass pediment apex
+	box(g, 5.0, 0.2, depth, ironGreen, 0, baseY + 4.4, houseZ);
+	const roofGlass = box(g, 4.6, 0.9, depth - 0.2, glassTint, 0, baseY + 4.85, houseZ);
 	roofGlass.scale.set(1, 0.8, 1);
-	// Roof crest iron filigree & apex finial (from photo)
-	cylinder(g, 0.02, 0.06, 0.8, PALETTE.gold, 0, baseY + 5.3, depth / 2 + 0.05, 8);
-	sphere(g, 0.14, PALETTE.gold, 0, baseY + 5.75, depth / 2 + 0.05, 8);
+	// Roof crest iron filigree & apex finial
+	cylinder(g, 0.02, 0.06, 0.8, PALETTE.gold, 0, baseY + 5.5, houseZ + depth / 2 + 0.05, 8);
+	sphere(g, 0.14, PALETTE.gold, 0, baseY + 5.95, houseZ + depth / 2 + 0.05, 8);
 
-	// ── 6. VIBRANT INTERIOR FILLED WITH FLOWERS! (Visible from outside) ─
-	// Center multi-tiered floral pyramid display
+	// ── 6. LUSH INTERIOR FILLED WITH FLOWERS (Clearly visible!) ────────
+	// Multi-tiered floral pyramid display
 	for (let t = 0; t < 3; t++) {
 		const ty = baseY + 0.2 + t * 0.4;
 		const tw = 3.6 - t * 0.9;
 		const td = 2.8 - t * 0.7;
-		box(g, tw, 0.38, td, '#334155', 0, ty, 0); // tier stand
-		// Packed colorful blossoms (Roses, Orchids, Marigolds, Lilies)
+		box(g, tw, 0.38, td, '#334155', 0, ty, houseZ);
 		const flowerColors = ['#ef4444', '#f59e0b', '#ec4899', '#a855f7', '#3b82f6', '#ffffff', '#e11d48'];
 		for (let p = 0; p < 12 - t * 3; p++) {
 			const col = flowerColors[(p + t * 3) % flowerColors.length];
 			const ang = (p / (12 - t * 3)) * Math.PI * 2;
 			const fx = Math.cos(ang) * (tw / 2 - 0.2);
 			const fz2 = Math.sin(ang) * (td / 2 - 0.2);
-			sphere(g, 0.16, col, fx, ty + 0.28, fz2, 6);
+			sphere(g, 0.18, col, fx, ty + 0.32, houseZ + fz2, 6);
 		}
 	}
 
 	// Side aisle floral display tables along left and right interior walls
-	for (const sx of [-3.8, 3.8]) {
-		box(g, 1.2, 0.5, 4.8, '#475569', sx, baseY + 0.35, 0);
+	for (const sx of [-4.0, 4.0]) {
+		box(g, 1.2, 0.5, 4.8, '#475569', sx, baseY + 0.35, houseZ);
 		for (let k = 0; k < 10; k++) {
 			const kz = -2.0 + k * 0.45;
 			const pCol = ['#f43f5e', '#fbbf24', '#c084fc', '#fb7185', '#38bdf8', '#34d399'][k % 6];
-			sphere(g, 0.18, pCol, sx + (k % 2 === 0 ? 0.2 : -0.2), baseY + 0.75, kz, 6);
+			sphere(g, 0.18, pCol, sx + (k % 2 === 0 ? 0.2 : -0.2), baseY + 0.75, houseZ + kz, 6);
 		}
 	}
 
-	// Hanging flower baskets from the roof trusses!
-	for (const hx of [-2.2, 2.2]) {
+	// Hanging flower baskets from roof
+	for (const hx of [-2.4, 2.4]) {
 		for (const hz of [-1.8, 1.8]) {
-			cylinder(g, 0.015, 0.015, 1.1, ironGreen, hx, baseY + 3.0, hz, 4); // chain
-			cylinder(g, 0.3, 0.2, 0.2, '#78350f', hx, baseY + 2.4, hz, 8);    // basket
-			sphere(g, 0.25, '#f43f5e', hx, baseY + 2.55, hz, 6);             // flowers overflowing
-			sphere(g, 0.18, '#fbbf24', hx + 0.12, baseY + 2.5, hz + 0.1, 6);
-			sphere(g, 0.18, '#ec4899', hx - 0.12, baseY + 2.5, hz - 0.1, 6);
+			cylinder(g, 0.015, 0.015, 1.1, ironGreen, hx, baseY + 3.2, houseZ + hz, 4);
+			cylinder(g, 0.3, 0.2, 0.2, '#78350f', hx, baseY + 2.6, houseZ + hz, 8);
+			sphere(g, 0.26, '#f43f5e', hx, baseY + 2.75, houseZ + hz, 6);
+			sphere(g, 0.18, '#fbbf24', hx + 0.12, baseY + 2.7, houseZ + hz + 0.1, 6);
+			sphere(g, 0.18, '#ec4899', hx - 0.12, baseY + 2.7, houseZ + hz - 0.1, 6);
 		}
 	}
 
-	// ── 7. TOURISTS ADMIRING THE FLOWER SHOW ───────────────────────────
-	addTourist(g, -2.8, depth / 2 + 1.8, 0.2);
-	addTourist(g,  2.8, depth / 2 + 1.8, -0.2);
+	// ── 7. TOURISTS ADMIRING THE FLOWERS ───────────────────────────────
+	addTourist(g, -3.2, 2.2, 0.2, fBaseY);
+	addTourist(g,  3.2, 2.2, -0.2, fBaseY);
 
-	return { group: g, width: 11.2, depth: 8.4, hollowFootprint: true };
+	return { group: g, width: 13.0, depth: 14.5, hollowFootprint: true };
+}
+
+/** 🥞 Davanagere Benne Dosa Street Stall with sizzling griddle & butter */
+export function createDosaStall(): THREE.Group {
+	const g = new THREE.Group();
+	box(g, 1.6, 0.85, 0.9, '#854d0e', 0, 0.45, 0);
+	cylinder(g, 0.24, 0.24, 0.08, '#1e293b', -0.65, 0.25, 0.48, 8).rotation.x = Math.PI / 2;
+	cylinder(g, 0.24, 0.24, 0.08, '#1e293b',  0.65, 0.25, 0.48, 8).rotation.x = Math.PI / 2;
+	box(g, 1.7, 0.08, 1.0, '#cbd5e1', 0, 0.90, 0);
+	cylinder(g, 0.36, 0.36, 0.03, '#1f2937', -0.25, 0.95, 0, 16);
+	cylinder(g, 0.22, 0.22, 0.02, '#eab308', -0.25, 0.98, 0, 12);
+	sphere(g, 0.05, '#ffffff', -0.25, 1.01, 0, 6);
+	cylinder(g, 0.08, 0.06, 0.08, '#f8fafc', 0.35, 0.98, -0.2, 8);
+	cylinder(g, 0.08, 0.06, 0.08, '#ea580c', 0.35, 0.98,  0.0, 8);
+	cylinder(g, 0.10, 0.08, 0.09, '#ca8a04', 0.35, 0.98,  0.22, 8);
+	cylinder(g, 0.02, 0.02, 1.4, '#475569', -0.75, 1.55, -0.4, 4);
+	cylinder(g, 0.02, 0.02, 1.4, '#475569',  0.75, 1.55, -0.4, 4);
+	box(g, 1.8, 0.06, 1.1, '#dc2626', 0, 2.25, 0);
+	box(g, 1.8, 0.06, 0.3, '#facc15', 0, 2.26, 0);
+	return g;
+}
+
+/** 🌽 Bhutta / Roasted Sweet Corn Stall with glowing charcoal brazier */
+export function createCornStall(): THREE.Group {
+	const g = new THREE.Group();
+	box(g, 1.2, 0.8, 0.8, '#78350f', 0, 0.4, 0);
+	box(g, 1.3, 0.06, 0.9, '#94a3b8', 0, 0.83, 0);
+	box(g, 0.6, 0.18, 0.45, '#334155', -0.2, 0.94, 0);
+	box(g, 0.54, 0.06, 0.4, '#ea580c', -0.2, 1.02, 0);
+	const c1 = cylinder(g, 0.04, 0.04, 0.28, '#ca8a04', -0.25, 1.06, -0.08, 6);
+	c1.rotation.z = Math.PI / 2;
+	const c2 = cylinder(g, 0.04, 0.04, 0.28, '#854d0e', -0.25, 1.06,  0.08, 6);
+	c2.rotation.z = Math.PI / 2;
+	cylinder(g, 0.05, 0.05, 0.3, '#65a30d', 0.32, 0.92, -0.15, 6);
+	cylinder(g, 0.05, 0.05, 0.3, '#65a30d', 0.36, 0.92,  0.1, 6);
+	sphere(g, 0.04, '#eab308', 0.22, 0.88, 0.25, 6);
+	return g;
+}
+
+/** 🥥 Elaneer / Tender Coconut Stall with green coconut mound & machete */
+export function createCoconutStall(): THREE.Group {
+	const g = new THREE.Group();
+	box(g, 1.4, 0.75, 0.9, '#525252', 0, 0.375, 0);
+	box(g, 1.5, 0.06, 1.0, '#78350f', 0, 0.78, 0);
+	cylinder(g, 0.22, 0.24, 0.35, '#451a03', 0.35, 0.95, 0.15, 8);
+	const knife = box(g, 0.02, 0.14, 0.32, '#e2e8f0', 0.35, 1.15, 0.15);
+	knife.rotation.x = 0.3;
+	const coconuts = [
+		[-0.35, 0.90, -0.2], [-0.15, 0.90, -0.2], [-0.35, 0.90, 0.05],
+		[-0.15, 0.90,  0.05], [-0.25, 1.05, -0.08], [-0.4, 0.90, 0.25]
+	];
+	for (const [cx, cy, cz] of coconuts) {
+		sphere(g, 0.11, '#65a30d', cx, cy, cz, 8);
+	}
+	cylinder(g, 0.05, 0.05, 0.18, '#f8fafc', 0.45, 0.90, -0.28, 8);
+	return g;
+}
+
+/** 💧 Sintex Black Ribbed Polyethylene Rooftop Water Tank */
+export function createSintexTank(): THREE.Group {
+	const g = new THREE.Group();
+	cylinder(g, 0.45, 0.45, 1.1, '#18181b', 0, 0.55, 0, 14);
+	for (let r = 0; r < 3; r++) {
+		cylinder(g, 0.47, 0.47, 0.05, '#09090b', 0, 0.3 + r * 0.28, 0, 14);
+	}
+	cylinder(g, 0.24, 0.24, 0.08, '#27272a', 0, 1.14, 0, 10);
+	cylinder(g, 0.455, 0.455, 0.12, '#f8fafc', 0, 0.85, 0, 14);
+	cylinder(g, 0.025, 0.025, 0.6, '#e2e8f0', 0.42, 0.3, 0, 4);
+	return g;
+}
+
+/** 🪜 External Steel Fire Escape / Rooftop Ladder */
+export function createRooftopLadder(height = 3.6): THREE.Group {
+	const g = new THREE.Group();
+	cylinder(g, 0.02, 0.02, height, '#374151', -0.22, height / 2, 0, 4);
+	cylinder(g, 0.02, 0.02, height, '#374151',  0.22, height / 2, 0, 4);
+	const rungs = Math.floor(height / 0.35);
+	for (let i = 1; i < rungs; i++) {
+		const rung = cylinder(g, 0.015, 0.015, 0.44, '#4b5563', 0, i * 0.35, 0, 4);
+		rung.rotation.z = Math.PI / 2;
+	}
+	return g;
 }
 

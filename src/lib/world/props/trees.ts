@@ -60,6 +60,16 @@ function createBroadleaf(kind: Exclude<TreeKind, 'palm'>, rand: () => number): T
 		c.scale.y = kind === 'rain' ? 0.6 : 0.8;
 		c.rotation.y = rand() * Math.PI;
 	}
+	// Fallen blossom petals carpeting the ground around the tree trunk
+	if (kind !== 'rain') {
+		const petalCol = colors[0];
+		for (let p = 0; p < 16; p++) {
+			const pa = rand() * Math.PI * 2;
+			const pr = range(rand, 0.35, spread * scale * 1.05);
+			const petal = blob(g, range(rand, 0.06, 0.12), petalCol, Math.cos(pa) * pr, 0.02, Math.sin(pa) * pr);
+			petal.scale.y = 0.25;
+		}
+	}
 	return { group: g, radius: 0.3 * scale, canopy: (spread + 0.8) * scale };
 }
 

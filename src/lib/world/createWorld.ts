@@ -21,6 +21,12 @@ import {
 	createMuseum,
 	createRowHouse,
 	createVeenaModel,
+	createQuantumStrutModel,
+	createDosaStall,
+	createCornStall,
+	createCoconutStall,
+	createSintexTank,
+	createRooftopLadder,
 	createVidhanaSoudha,
 	type Building
 } from './props/buildings';
@@ -34,6 +40,7 @@ import {
 	createBench,
 	createChaiStall,
 	createCow,
+	createIndieDog,
 	createElectricPole,
 	createFruitCart,
 	createRangoli,
@@ -85,6 +92,8 @@ export interface World {
 	resize(width: number, height: number): void;
 	/** NPC within talking distance of the player, if any. */
 	nearbyNpc(): string | null;
+	npcDistance(id: string): number;
+	nearestAuto(): { distance: number; speed: number } | null;
 	currentZone(): Zone | null;
 	canInteractItem(): { type: string; prompt: string } | null;
 	interactItem(): void;
@@ -242,12 +251,38 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	const museumDir = museum.group.position.clone().normalize();
 
 	const glassHouse = createGlassHouse();
-	placeLandmark(glassHouse, crossRoad, 0.52, 1, 0.4);
+	placeLandmark(glassHouse, crossRoad, 0.52, 1, 3.6);
 	const glassHouseDir = glassHouse.group.position.clone().normalize();
 
 	const palace = createBangalorePalace();
 	placeLandmark(palace, crossRoad, 0.84, 1, 0.5);
 	const palaceDir = palace.group.position.clone().normalize();
+
+	// ── Standalone Dynamic Pickups (Added to scene directly so they vanish when collected!) ──
+	gopuram.group.updateMatrixWorld(true);
+	const templeVeena = createVeenaModel();
+	templeVeena.position.set(0, 0.44, 0.40);
+	templeVeena.applyMatrix4(gopuram.group.matrixWorld);
+	scene.add(templeVeena);
+
+	hotel.group.updateMatrixWorld(true);
+	const chaiFlask = new THREE.Group();
+	cylinder(chaiFlask, 0.08, 0.08, 0.30, '#dc2626', 0, 0.15, 0, 8);
+	cylinder(chaiFlask, 0.05, 0.05, 0.08, '#f8fafc', 0, 0.34, 0, 8);
+	chaiFlask.position.set(-hotel.width * 0.28 + 0.35, 0.95, hotel.depth / 2 + 0.4);
+	chaiFlask.applyMatrix4(hotel.group.matrixWorld);
+	scene.add(chaiFlask);
+
+	museum.group.updateMatrixWorld(true);
+	const museumStrut = createQuantumStrutModel();
+	museumStrut.position.set(0, 1.95, 0.4);
+	museumStrut.applyMatrix4(museum.group.matrixWorld);
+	scene.add(museumStrut);
+
+	const hotelSintex = createSintexTank();
+	hotelSintex.position.set(-hotel.width * 0.28, 2.7 + 2 * 2.4 + 0.05, 0);
+	hotelSintex.applyMatrix4(hotel.group.matrixWorld);
+	scene.add(hotelSintex);
 
 	// The start area: a busy junction on the main road.
 	const junction = network.junctions[0] ?? mainRoad.samples[0];
@@ -556,10 +591,16 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	cylinder(rocks, 0.08, 0.08, 0.8, '#4a2e16', -0.2, 0.1, 0.4, 6).rotation.z = -0.5;
 	sphere(rocks, 0.2, '#ff4500', 0, 0.25, 0.4, 8);
 	sphere(rocks, 0.12, '#ffcc00', 0, 0.35, 0.4, 6);
-	// Primordial sharp flint stone
-	box(rocks, 0.2, 0.15, 0.2, '#222222', -0.5, 0.1, 0.6);
 	addStatic(rocks, boulderDir, anyTangent(boulderDir));
 	layout.reserve(boulderDir, 3.2, false);
+
+	// Standalone Primordial Sharp Flint Stone (Added to scene directly so it vanishes!)
+	const flintGroup = new THREE.Group();
+	box(flintGroup, 0.24, 0.16, 0.24, '#18181b', 0, 0.08, 0); // sharp black flint
+	cylinder(flintGroup, 0.28, 0.28, 0.02, '#f59e0b', 0, 0.01, 0, 8); // glowing spark aura
+	const flintPos = stepAlong(boulderDir, anyTangent(boulderDir), 0.75);
+	placeOnSurface(flintGroup, flintPos, anyTangent(flintPos), 0.08);
+	scene.add(flintGroup);
 
 	// --- Street life on the footpaths ----------------------------------------
 	// Chai stall sits back from the kerb so its bench is on the footpath.
@@ -567,8 +608,37 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	for (let k = 0; k < 20 && !chaiFrame; k++)
 		chaiFrame = placeOnFootpath(createChaiStall(), mainRoad, jU + 0.045 + k * 0.01, -1, 1.2, 2.3);
 	placeOnFootpath(createFruitCart(rand), crossRoad, 0.58, 1, 0.9, 1.0, true);
-	placeOnFootpath(createCow(true), mainRoad, jU + 0.3, 1, 0.7, 0.9, true);
+
+	// 🐕 Friendly Indie Dog "Bruno" lounging peacefully by the footpath
+	const dogGroup = createIndieDog();
+	placeOnFootpath(dogGroup, mainRoad, jU + 0.075, -1, 0.6, 1.2, false);
+	const dogDir = dogGroup.position.clone().normalize();
+
+	// 🐄 Sacred Cow "Gauri" lounging near stalls
+	const cowGroup = createCow(true);
+	placeOnFootpath(cowGroup, mainRoad, jU + 0.3, 1, 0.7, 0.9, true);
+	const cowDir = cowGroup.position.clone().normalize();
 	placeOnFootpath(createCow(false), crossRoad, 0.8, -1, 0.7, 0.9, true);
+
+	// 🥞 Street Snack Stalls: Benne Dosa, Sweet Corn, Tender Coconut
+	const dosaStall = createDosaStall();
+	placeOnFootpath(dosaStall, crossRoad, 0.42, -1, 1.1, 1.5, true);
+	const dosaDir = dosaStall.position.clone().normalize();
+
+	const cornStall = createCornStall();
+	placeOnFootpath(cornStall, mainRoad, jU + 0.18, 1, 0.9, 1.3, true);
+	const cornDir = cornStall.position.clone().normalize();
+
+	const coconutStall = createCoconutStall();
+	placeOnFootpath(coconutStall, crossRoad, 0.65, 1, 1.0, 1.4, true);
+	const coconutDir = coconutStall.position.clone().normalize();
+
+	// 🌸 Bangalore Flowering Blossom Trees around Junction (Tabebuia, Jacaranda, Gulmohar)
+	const blossomTrees: TreeKind[] = ['tabebuia', 'jacaranda', 'gulmohar', 'tabebuia'];
+	for (let b = 0; b < blossomTrees.length; b++) {
+		const tree = createTree(blossomTrees[b], rand);
+		placeOnFootpath(tree.group, mainRoad, jU - 0.09 + b * 0.065, (b % 2 === 0 ? 1 : -1), tree.radius, 1.6, false);
+	}
 
 	// Street lamps along the main road, electricity poles + wires along the cross road.
 	for (let k = 0; k < 16; k++) {
@@ -816,11 +886,11 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	const playerChar = createPlayer();
 	playerChar.group.traverse((o) => (o.castShadow = true));
 
-	// Wearable Veena slung across player's back
+	// Divine Veena carried prominently in front in player's hands!
 	const playerVeena = createVeenaModel();
-	playerVeena.scale.set(0.65, 0.65, 0.65);
-	playerVeena.position.set(-0.06, 0.82, -0.22);
-	playerVeena.rotation.set(0.25, 0.12, -0.78);
+	playerVeena.scale.set(0.60, 0.60, 0.60);
+	playerVeena.position.set(0.08, 0.70, 0.28);
+	playerVeena.rotation.set(0.20, 0.45, -0.65);
 	playerChar.group.add(playerVeena);
 	playerVeena.visible = false;
 
@@ -833,6 +903,59 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	);
 	player.waterCenter = lakeDir;
 	player.waterRadius = 4.4;
+
+	// ── Localized Monsoon Rain over Lalbagh Glass House ──────────────────
+	const rainCount = 140;
+	const rainPositions = new Float32Array(rainCount * 6);
+	const rainGeo = new THREE.BufferGeometry();
+	rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+	const rainStreaks: { localX: number; localZ: number; alt: number; speed: number; len: number }[] = [];
+	const glassHouseTangent = anyTangent(glassHouseDir);
+	const glassHouseRight = glassHouseDir.clone().cross(glassHouseTangent).normalize();
+
+	for (let r = 0; r < rainCount; r++) {
+		rainStreaks.push({
+			localX: (Math.random() - 0.5) * 16.0,
+			localZ: (Math.random() - 0.5) * 16.0,
+			alt: 2.0 + Math.random() * 9.0,
+			speed: 9.0 + Math.random() * 5.0,
+			len: 0.55 + Math.random() * 0.35
+		});
+	}
+	const rainMat = new THREE.LineBasicMaterial({
+		color: 0x93c5fd,
+		transparent: true,
+		opacity: 0.45
+	});
+	const rainLines = new THREE.LineSegments(rainGeo, rainMat);
+	scene.add(rainLines);
+
+	// ── Floating Heart Particles for Petting Animals ────────────────────
+	interface HeartParticle {
+		mesh: THREE.Mesh;
+		dir: THREE.Vector3;
+		height: number;
+		life: number;
+		maxLife: number;
+	}
+	const activeHearts: HeartParticle[] = [];
+	const heartGeo = new THREE.ConeGeometry(0.12, 0.16, 6);
+	const heartMat = new THREE.MeshBasicMaterial({ color: 0xff2255 });
+
+	function spawnHeart(posDir: THREE.Vector3, baseH = 0.8) {
+		for (let h = 0; h < 3; h++) {
+			const mesh = new THREE.Mesh(heartGeo, heartMat);
+			mesh.rotation.x = Math.PI;
+			scene.add(mesh);
+			activeHearts.push({
+				mesh,
+				dir: posDir.clone(),
+				height: baseH + h * 0.2,
+				life: 0,
+				maxLife: 1.4 + Math.random() * 0.4
+			});
+		}
+	}
 
 	// ── MAHINDRA THAR POLE CRASH EVENT (Curbside on Main Road u=0.58) ──────
 	tharCrash = createTharCrashEvent();
@@ -1058,7 +1181,12 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			wildlife?.update(elapsed, dt);
 			tharCrash?.update(elapsed, dt);
 			playerVeena.visible = hasVeena && !hasDeliveredVeena;
+			templeVeena.visible = !hasVeena;
 			musicianVeena.visible = hasDeliveredVeena;
+			museumStrut.visible = !hasStrut;
+			chaiFlask.visible = !hasChai;
+			flintGroup.visible = !hasFlint;
+			relicGroup.visible = !hasSunkenRelic;
 
 			// ── DYNAMIC 3D WATER WAVE VERTEX DISPLACEMENT ──
 			if (waterGeo && baseWaterPos) {
@@ -1090,14 +1218,57 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			}
 
 			// Rising bubbles from sunken relic
-			for (const b of bubbles) {
-				b.y = (b.y + dt * b.speed) % 0.45;
-				placeOnSurface(b.mesh, b.p, anyTangent(b.p), b.y);
+			if (!hasSunkenRelic) {
+				for (const b of bubbles) {
+					b.mesh.visible = true;
+					b.y = (b.y + dt * b.speed) % 0.45;
+					placeOnSurface(b.mesh, b.p, anyTangent(b.p), b.y);
+				}
+			} else {
+				for (const b of bubbles) b.mesh.visible = false;
 			}
 
 			// Sluice wheel turning
 			if (turnedSluice) {
 				wheelGroup.rotation.y += dt * 2.5;
+			}
+
+			// ── Update Lalbagh localized rain streaks ──
+			const posAttr = rainGeo.attributes.position as THREE.BufferAttribute;
+			if (posAttr) {
+				const arr = posAttr.array as Float32Array;
+				for (let r = 0; r < rainCount; r++) {
+					const s = rainStreaks[r];
+					s.alt -= dt * s.speed;
+					if (s.alt < 0.2) s.alt = 10.0;
+					const centerPoint = stepAlong(
+						stepAlong(glassHouseDir, glassHouseRight, s.localX),
+						glassHouseTangent,
+						s.localZ
+					);
+					const pBottom = centerPoint.clone().multiplyScalar(PLANET_RADIUS + s.alt);
+					const pTop = centerPoint.clone().multiplyScalar(PLANET_RADIUS + s.alt + s.len);
+					arr[r * 6 + 0] = pBottom.x;
+					arr[r * 6 + 1] = pBottom.y;
+					arr[r * 6 + 2] = pBottom.z;
+					arr[r * 6 + 3] = pTop.x;
+					arr[r * 6 + 4] = pTop.y;
+					arr[r * 6 + 5] = pTop.z;
+				}
+				posAttr.needsUpdate = true;
+			}
+
+			// ── Update floating heart particles ──
+			for (let i = activeHearts.length - 1; i >= 0; i--) {
+				const h = activeHearts[i];
+				h.life += dt;
+				h.height += dt * 0.75;
+				h.mesh.scale.setScalar(Math.sin((h.life / h.maxLife) * Math.PI) * 1.3);
+				placeOnSurface(h.mesh, h.dir, anyTangent(h.dir), h.height);
+				if (h.life >= h.maxLife) {
+					scene.remove(h.mesh);
+					activeHearts.splice(i, 1);
+				}
 			}
 		},
 		hour: () => currentHour,
@@ -1132,6 +1303,14 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 				}
 			}
 			return best;
+		},
+		npcDistance(id: string) {
+			const n = npcs.find((x) => x.id === id);
+			if (!n) return Infinity;
+			return n.character.group.position.distanceTo(player.position);
+		},
+		nearestAuto() {
+			return traffic.getNearestAuto(player.position);
 		},
 		currentZone(): Zone | null {
 			const ZONES: Zone[] = [
@@ -1185,6 +1364,21 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			if (hasStrut && !repairedUfo && surfaceDistance(player.up, parkDir) < 3.8) {
 				return { type: 'ufo_repair' as const, prompt: 'Press [E] to install Titanium Strut into Flying Saucer' };
 			}
+			if (dogDir && surfaceDistance(player.up, dogDir) < 2.0) {
+				return { type: 'pet_dog' as const, prompt: 'Press [E] to pet Bruno the Indie Dog' };
+			}
+			if (cowDir && surfaceDistance(player.up, cowDir) < 2.2) {
+				return { type: 'pet_cow' as const, prompt: 'Press [E] to pet Gauri the Sacred Cow' };
+			}
+			if (dosaDir && surfaceDistance(player.up, dosaDir) < 2.2) {
+				return { type: 'taste_dosa' as const, prompt: 'Press [E] to taste Davanagere Benne Dosa (Butter Dosa)' };
+			}
+			if (cornDir && surfaceDistance(player.up, cornDir) < 2.2) {
+				return { type: 'taste_corn' as const, prompt: 'Press [E] to grab spicy roasted sweet corn' };
+			}
+			if (coconutDir && surfaceDistance(player.up, coconutDir) < 2.2) {
+				return { type: 'sip_coconut' as const, prompt: 'Press [E] to sip fresh tender coconut water' };
+			}
 			return null;
 		},
 		interactItem() {
@@ -1193,9 +1387,7 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			if (item.type === 'veena') {
 				hasVeena = true;
 				quests.completeTask('musician_veena', 'get_veena');
-				if (gopuram.group.userData.veena) {
-					gopuram.group.userData.veena.visible = false;
-				}
+				templeVeena.visible = false;
 				playerVeena.visible = true;
 			} else if (item.type === 'veena_deliver') {
 				hasDeliveredVeena = true;
@@ -1204,22 +1396,26 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 				quests.completeTask('musician_veena', 'deliver_veena');
 			} else if (item.type === 'chai_flask') {
 				hasChai = true;
+				chaiFlask.visible = false;
 				quests.completeTask('chef_chai_rush', 'take_thermos');
 			} else if (item.type === 'chai_deliver') {
 				deliveredChai = true;
 				quests.completeTask('chef_chai_rush', 'deliver_temple');
 			} else if (item.type === 'strut') {
 				hasStrut = true;
+				museumStrut.visible = false;
 				quests.completeTask('alien_ufo_repair', 'steal_strut');
 			} else if (item.type === 'relic') {
 				hasSunkenRelic = true;
 				relicGroup.visible = false;
+				for (const b of bubbles) b.mesh.visible = false;
 				quests.completeTask('mani_lake_revival', 'clear_debris');
 			} else if (item.type === 'sluice') {
 				turnedSluice = true;
 				quests.completeTask('mani_lake_revival', 'open_sluice');
 			} else if (item.type === 'flint') {
 				hasFlint = true;
+				flintGroup.visible = false;
 				quests.completeTask('grog_ancient_spark', 'find_flint');
 			} else if (item.type === 'campfire') {
 				hasLitFire = true;
@@ -1230,6 +1426,16 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 			} else if (item.type === 'ufo_repair') {
 				repairedUfo = true;
 				quests.completeTask('alien_ufo_repair', 'repair_ufo');
+			} else if (item.type === 'pet_dog') {
+				spawnHeart(dogDir, 0.7);
+			} else if (item.type === 'pet_cow') {
+				spawnHeart(cowDir, 1.1);
+			} else if (item.type === 'taste_dosa') {
+				spawnHeart(dosaDir, 1.2);
+			} else if (item.type === 'taste_corn') {
+				spawnHeart(cornDir, 1.2);
+			} else if (item.type === 'sip_coconut') {
+				spawnHeart(coconutDir, 1.2);
 			}
 		},
 		nearbySpeech(camera: THREE.Camera): { name: string; text: string; x: number; y: number } | null {

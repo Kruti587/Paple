@@ -32,6 +32,7 @@ interface PlayerOnRoad {
 
 interface Vehicle {
 	index: number;
+	kind: VehicleKind;
 	object: THREE.Object3D;
 	road: Road;
 	u: number;
@@ -84,6 +85,7 @@ export class Traffic {
 		const f = road.frameAt(u, lane);
 		this.vehicles.push({
 			index: this.vehicles.length,
+			kind,
 			object,
 			road,
 			u,
@@ -96,6 +98,18 @@ export class Traffic {
 			up: f.up,
 			forward: f.forward.multiplyScalar(direction)
 		});
+	}
+
+	getNearestAuto(playerPos: THREE.Vector3): { distance: number; speed: number } | null {
+		let best: { distance: number; speed: number } | null = null;
+		for (const v of this.vehicles) {
+			if (v.kind !== 'auto') continue;
+			const d = v.object.position.distanceTo(playerPos);
+			if (!best || d < best.distance) {
+				best = { distance: d, speed: v.speed };
+			}
+		}
+		return best;
 	}
 
 	update(dt: number, playerDir: THREE.Vector3) {
