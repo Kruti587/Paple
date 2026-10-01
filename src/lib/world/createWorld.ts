@@ -136,7 +136,11 @@ export function createWorld(canvas: HTMLCanvasElement, npcIds: string[]): World 
 	const rand = mulberry32(20260926);
 
 	// --- Renderer / scene ---------------------------------------------------
-	const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+	const renderer = new THREE.WebGLRenderer({
+		canvas,
+		antialias: false,
+		preserveDrawingBuffer: true
+	});
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFShadowMap;

@@ -19,7 +19,7 @@
 	import { quests } from '$lib/game/questManager';
 	import { Game, type GameEvent, type GameUi } from '$lib/game/game';
 	import { npcConfig } from '$lib/npcConfig';
-	import { createWorld } from '$lib/world/createWorld';
+	import { createWorld, type World } from '$lib/world/createWorld';
 	import { playAutoHorn } from '$lib/audio/autoHorn';
 	import { formatClock } from '$lib/world/dayCycle';
 	import { createKeyboard } from '$lib/world/input';
@@ -47,12 +47,22 @@
 	let flashActive = $state(false);
 	let capturedPostcard = $state<{ dataUrl: string; zone: string; timeStr: string } | null>(null);
 
+	let currentWorld: World | null = null;
+
 	function takePostcardPhoto() {
 		if (!canvas) return;
 		flashActive = true;
 		setTimeout(() => (flashActive = false), 350);
 		try {
-			const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+			// Force immediate render to guarantee canvas buffer has latest frame
+			const now = performance.now() * 0.001;
+			if (game) {
+				game.render(now);
+			} else if (currentWorld) {
+				currentWorld.render(now);
+			}
+
+			const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
 			capturedPostcard = {
 				dataUrl,
 				zone: currentZoneLabel || 'Namma Bengaluru Heart',
@@ -194,6 +204,7 @@
 			if (disposed) return;
 
 			const world = createWorld(canvas, Object.keys(npcConfig));
+			currentWorld = world;
 			const g = new Game(world, onGameEvent);
 			game = g;
 			const keyboard = createKeyboard();
